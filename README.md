@@ -258,3 +258,23 @@ Naukri specific
 ├── vacancy_count
 └── work_from_home_type
 ```
+
+## GitHub Pages frontend + weekly auto-scrape
+
+This repo includes a self-contained static frontend (`docs/index.html`) you can serve with
+GitHub Pages, plus a scheduled scraper that keeps its data fresh:
+
+- **`scraper/JOBSCRAPPER.ipynb`** — the scraper notebook. Its parameters (search term,
+  location, sites, etc.) come from `scraper/search_config.json`.
+- **`.github/workflows/scrape-jobs.yml`** — runs every Monday at 06:00 UTC (and on-demand via
+  *Actions → Scrape jobs for GitHub Pages → Run workflow*). It executes the notebook, converts
+  the resulting CSV into `docs/data/jobs.json`, and commits the update.
+- **`docs/index.html`** — loads `docs/data/jobs.json` and lets a visitor filter results live by
+  keyword, site, or job type. Because GitHub Pages is static hosting, the search box filters
+  the already-scraped results instantly rather than triggering a new scrape.
+- To scrape a **new search term or location**, run the workflow manually from the Actions tab
+  and fill in the `search_term`/`location` inputs — that term also becomes the one used by
+  future weekly runs.
+
+**Enabling Pages:** in the repo settings, set *Pages → Source* to the `docs/` folder on this
+branch. Once enabled, the site updates automatically after every scrape commit.

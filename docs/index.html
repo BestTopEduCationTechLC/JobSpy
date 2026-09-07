@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JobSpy Search</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --card: #ffffff;
+    --border: #e2e2e6;
+    --text: #1a1a1e;
+    --muted: #6b6b74;
+    --accent: #2563eb;
+    --accent-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17171a;
+      --card: #212126;
+      --border: #33333a;
+      --text: #f2f2f4;
+      --muted: #9a9aa2;
+      --accent: #3b82f6;
+      --accent-text: #ffffff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
+  .searchbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 1rem;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); }
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+  }
+  .filters select {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+  }
+  .meta {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-bottom: 20px;
+  }
+  .job {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+  .job h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .job h3 a { color: var(--text); text-decoration: none; }
+  .job h3 a:hover { color: var(--accent); }
+  .job .company { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; font-size: 0.75rem; }
+  .tag {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    color: var(--muted);
+  }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .count-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--accent-text);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    margin-left: 8px;
+  }
+  footer {
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 40px;
+    text-align: center;
+  }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>JobSpy Search<span class="count-badge" id="countBadge">0</span></h1>
+    <p class="sub" id="metaLine">Loading job data&hellip;</p>
+
+    <div class="searchbar">
+      <input type="text" id="searchInput" placeholder="Search title, company or location (e.g. &quot;data analyst&quot;, &quot;remote&quot;)" autofocus />
+    </div>
+    <div class="filters">
+      <select id="siteFilter"><option value="">All sites</option></select>
+      <select id="typeFilter"><option value="">All job types</option></select>
+    </div>
+
+    <div id="results"></div>
+
+    <footer>
+      Data refreshes automatically every week via
+      <a href="../.github/workflows/scrape-jobs.yml" target="_blank" rel="noopener">GitHub Actions</a>
+      running the JobSpy scraper notebook. To scrape a different search term or location right now,
+      go to the repository's <strong>Actions &rarr; Scrape jobs for GitHub Pages &rarr; Run workflow</strong>
+      and fill in the inputs &mdash; the new term also becomes next week's automatic search.
+    </footer>
+  </div>
+
+<script>
+(function () {
+  const state = { jobs: [], search: "", site: "", type: "" };
+
+  const resultsEl = document.getElementById("results");
+  const searchInput = document.getElementById("searchInput");
+  const siteFilter = document.getElementById("siteFilter");
+  const typeFilter = document.getElementById("typeFilter");
+  const metaLine = document.getElementById("metaLine");
+  const countBadge = document.getElementById("countBadge");
+
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  function populateFilterOptions() {
+    const sites = [...new Set(state.jobs.map((j) => j.site).filter(Boolean))].sort();
+    const types = [...new Set(state.jobs.map((j) => j.job_type).filter(Boolean))].sort();
+    for (const s of sites) {
+      const opt = document.createElement("option");
+      opt.value = s; opt.textContent = s;
+      siteFilter.appendChild(opt);
+    }
+    for (const t of types) {
+      const opt = document.createElement("option");
+      opt.value = t; opt.textContent = t;
+      typeFilter.appendChild(opt);
+    }
+  }
+
+  function matches(job) {
+    if (state.site && job.site !== state.site) return false;
+    if (state.type && job.job_type !== state.type) return false;
+    if (!state.search) return true;
+    const haystack = [job.title, job.company, job.location, job.description]
+      .filter(Boolean).join(" ").toLowerCase();
+    return state.search.toLowerCase().split(/\s+/).every((term) => haystack.includes(term));
+  }
+
+  function render() {
+    const filtered = state.jobs.filter(matches);
+    countBadge.textContent = filtered.length;
+
+    if (filtered.length === 0) {
+      resultsEl.innerHTML = '<div class="empty">No jobs match your search.</div>';
+      return;
+    }
+
+    resultsEl.innerHTML = filtered.slice(0, 300).map((job) => `
+      <div class="job">
+        <h3><a href="${escapeHtml(job.job_url)}" target="_blank" rel="noopener">${escapeHtml(job.title)}</a></h3>
+        <div class="company">${escapeHtml(job.company)} &middot; ${escapeHtml(job.location)}</div>
+        <div class="tags">
+          ${job.site ? `<span class="tag">${escapeHtml(job.site)}</span>` : ""}
+          ${job.job_type ? `<span class="tag">${escapeHtml(job.job_type)}</span>` : ""}
+          ${job.date_posted ? `<span class="tag">${escapeHtml(job.date_posted)}</span>` : ""}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  searchInput.addEventListener("input", (e) => { state.search = e.target.value; render(); });
+  siteFilter.addEventListener("change", (e) => { state.site = e.target.value; render(); });
+  typeFilter.addEventListener("change", (e) => { state.type = e.target.value; render(); });
+
+  fetch("data/jobs.json", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((data) => {
+      state.jobs = data.jobs || [];
+      populateFilterOptions();
+      const generated = data.generated_at ? new Date(data.generated_at).toLocaleString() : "unknown";
+      metaLine.textContent = `Last scraped: ${generated} — search term: "${data.search_term || ""}" in ${data.location || ""}`;
+      render();
+    })
+    .catch((err) => {
+      metaLine.textContent = "Could not load job data.";
+      resultsEl.innerHTML = '<div class="empty">No data available yet. Run the scraper workflow first.</div>';
+      console.error(err);
+    });
+})();
+</script>
+</body>
+</html>
