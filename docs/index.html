@@ -4,120 +4,91 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>JobSpy Search</title>
-<style>
-  :root {
-    --bg: #f7f7f8;
-    --card: #ffffff;
-    --border: #e2e2e6;
-    --text: #1a1a1e;
-    --muted: #6b6b74;
-    --accent: #2563eb;
-    --accent-text: #ffffff;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #17171a;
-      --card: #212126;
-      --border: #33333a;
-      --text: #f2f2f4;
-      --muted: #9a9aa2;
-      --accent: #3b82f6;
-      --accent-text: #ffffff;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
-  .searchbar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  input[type="text"] {
-    flex: 1;
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-    font-size: 1rem;
-  }
-  input[type="text"]:focus { outline: 2px solid var(--accent); }
-  .filters {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-    font-size: 0.85rem;
-  }
-  .filters select {
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-  }
-  .meta {
-    color: var(--muted);
-    font-size: 0.82rem;
-    margin-bottom: 20px;
-  }
-  .job {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 18px;
-    margin-bottom: 12px;
-  }
-  .job h3 { margin: 0 0 4px; font-size: 1.05rem; }
-  .job h3 a { color: var(--text); text-decoration: none; }
-  .job h3 a:hover { color: var(--accent); }
-  .job .company { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
-  .tags { display: flex; gap: 6px; flex-wrap: wrap; font-size: 0.75rem; }
-  .tag {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 3px 10px;
-    color: var(--muted);
-  }
-  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
-  .count-badge {
-    display: inline-block;
-    background: var(--accent);
-    color: var(--accent-text);
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 0.75rem;
-    margin-left: 8px;
-  }
-  footer {
-    color: var(--muted);
-    font-size: 0.78rem;
-    margin-top: 40px;
-    text-align: center;
-  }
-  footer a { color: inherit; }
-</style>
+<link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+  <nav class="topnav" id="topnav"></nav>
+
   <div class="wrap">
     <h1>JobSpy Search<span class="count-badge" id="countBadge">0</span></h1>
     <p class="sub" id="metaLine">Loading job data&hellip;</p>
 
-    <div class="searchbar">
-      <input type="text" id="searchInput" placeholder="Search title, company or location (e.g. &quot;data analyst&quot;, &quot;remote&quot;)" autofocus />
+    <div class="field" style="margin-bottom: 6px;">
+      <label for="searchInput">Search (supports AND, OR, NOT, "exact phrases", and (grouping))</label>
+      <input type="text" id="searchInput" placeholder='e.g. "data analyst" AND (python OR sql) NOT intern' autofocus />
     </div>
-    <div class="filters">
-      <select id="siteFilter"><option value="">All sites</option></select>
-      <select id="typeFilter"><option value="">All job types</option></select>
+    <p class="hint">
+      This box filters the jobs already scraped below. Use the same box's text when you click
+      <strong>Run New Search</strong> — your AND/OR/NOT is translated into JobSpy/Indeed's own
+      query syntax (NOT&nbsp;word&nbsp;&rarr;&nbsp;-word, OR kept as-is) before it's sent to the scraper.
+    </p>
+
+    <details class="advanced">
+      <summary>Advanced scraper parameters (used only when you click "Run New Search")</summary>
+      <div class="field-row">
+        <div class="field">
+          <label for="locationInput">Location</label>
+          <input type="text" id="locationInput" placeholder="Singapore" />
+        </div>
+        <div class="field">
+          <label for="countryInput">Country (Indeed/Glassdoor)</label>
+          <input type="text" id="countryInput" placeholder="Singapore" />
+        </div>
+        <div class="field">
+          <label for="jobTypeInput">Job type</label>
+          <select id="jobTypeInput">
+            <option value="">Any</option>
+            <option value="fulltime">Full-time</option>
+            <option value="parttime">Part-time</option>
+            <option value="internship">Internship</option>
+            <option value="contract">Contract</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="resultsInput">Results per site</label>
+          <input type="number" id="resultsInput" min="1" max="1000" value="100" />
+        </div>
+        <div class="field">
+          <label for="hoursOldInput">Posted within (hours)</label>
+          <input type="number" id="hoursOldInput" min="1" value="168" />
+        </div>
+        <div class="field">
+          <label for="distanceInput">Distance (miles)</label>
+          <input type="number" id="distanceInput" min="0" value="50" />
+        </div>
+      </div>
+      <div class="field-row" style="margin-bottom: 6px;">
+        <label class="checkline"><input type="checkbox" id="siteIndeed" checked /> Indeed</label>
+        <label class="checkline"><input type="checkbox" id="siteLinkedin" checked /> LinkedIn</label>
+        <label class="checkline"><input type="checkbox" id="siteGoogle" checked /> Google</label>
+        <label class="checkline"><input type="checkbox" id="siteZip" /> ZipRecruiter</label>
+        <label class="checkline"><input type="checkbox" id="siteGlassdoor" /> Glassdoor</label>
+        <label class="checkline"><input type="checkbox" id="siteBayt" /> Bayt</label>
+      </div>
+      <div class="field-row">
+        <label class="checkline"><input type="checkbox" id="remoteInput" /> Remote only</label>
+        <label class="checkline"><input type="checkbox" id="easyApplyInput" /> Easy-apply only</label>
+      </div>
+      <p class="hint" style="margin-top: 0;">
+        Note (per JobSpy/Indeed's own limits): Indeed and LinkedIn each honor only one of
+        "posted within" / "job type &amp; remote" / "easy-apply" at a time &mdash; whichever you set,
+        the others are ignored by those sites for this run.
+      </p>
+    </details>
+
+    <div class="toolbar">
+      <button type="button" class="primary" id="runSearchBtn">Run New Search (starts a fresh scrape)</button>
+      <button type="button" id="tokenBtn">GitHub token&hellip;</button>
+      <span class="spacer"></span>
+      <a class="btn" href="#" id="actionsLink" target="_blank" rel="noopener">Open Actions tab</a>
+    </div>
+
+    <div class="toolbar">
+      <label class="checkline"><input type="checkbox" id="selectAll" /> Select all shown</label>
+      <span id="selectedCount" class="hint" style="margin: 0;">0 selected</span>
+      <span class="spacer"></span>
+      <button type="button" id="saveSelectedBtn" disabled>Save selected</button>
+      <button type="button" id="exportSelectedBtn" disabled>Export selected to PDF</button>
     </div>
 
     <div id="results"></div>
@@ -125,86 +96,156 @@
     <footer>
       Data refreshes automatically every week via
       <a href="../.github/workflows/scrape-jobs.yml" target="_blank" rel="noopener">GitHub Actions</a>
-      running the JobSpy scraper notebook. To scrape a different search term or location right now,
-      go to the repository's <strong>Actions &rarr; Scrape jobs for GitHub Pages &rarr; Run workflow</strong>
-      and fill in the inputs &mdash; the new term also becomes next week's automatic search.
+      running the JobSpy scraper notebook, or on demand with the button above.
     </footer>
   </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="assets/app.js"></script>
 <script>
 (function () {
-  const state = { jobs: [], search: "", site: "", type: "" };
+  const App = window.JobSpyApp;
+  App.ensureUsername();
+  App.renderNav("index");
+  document.getElementById("actionsLink").href = App.actionsRunUrl();
+
+  const state = { jobs: [], selected: new Set() };
 
   const resultsEl = document.getElementById("results");
   const searchInput = document.getElementById("searchInput");
-  const siteFilter = document.getElementById("siteFilter");
-  const typeFilter = document.getElementById("typeFilter");
   const metaLine = document.getElementById("metaLine");
   const countBadge = document.getElementById("countBadge");
+  const selectAll = document.getElementById("selectAll");
+  const selectedCount = document.getElementById("selectedCount");
+  const saveSelectedBtn = document.getElementById("saveSelectedBtn");
+  const exportSelectedBtn = document.getElementById("exportSelectedBtn");
 
-  function escapeHtml(str) {
-    return String(str ?? "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    }[c]));
-  }
+  let visibleJobs = [];
 
-  function populateFilterOptions() {
-    const sites = [...new Set(state.jobs.map((j) => j.site).filter(Boolean))].sort();
-    const types = [...new Set(state.jobs.map((j) => j.job_type).filter(Boolean))].sort();
-    for (const s of sites) {
-      const opt = document.createElement("option");
-      opt.value = s; opt.textContent = s;
-      siteFilter.appendChild(opt);
-    }
-    for (const t of types) {
-      const opt = document.createElement("option");
-      opt.value = t; opt.textContent = t;
-      typeFilter.appendChild(opt);
-    }
-  }
-
-  function matches(job) {
-    if (state.site && job.site !== state.site) return false;
-    if (state.type && job.job_type !== state.type) return false;
-    if (!state.search) return true;
-    const haystack = [job.title, job.company, job.location, job.description]
-      .filter(Boolean).join(" ").toLowerCase();
-    return state.search.toLowerCase().split(/\s+/).every((term) => haystack.includes(term));
+  function jobFields(job) {
+    return [job.title, job.company, job.location, job.description].filter(Boolean).join(" ");
   }
 
   function render() {
-    const filtered = state.jobs.filter(matches);
-    countBadge.textContent = filtered.length;
+    const predicate = App.buildPredicate(searchInput.value, jobFields);
+    visibleJobs = state.jobs.filter(predicate);
+    countBadge.textContent = visibleJobs.length;
 
-    if (filtered.length === 0) {
+    if (visibleJobs.length === 0) {
       resultsEl.innerHTML = '<div class="empty">No jobs match your search.</div>';
-      return;
-    }
-
-    resultsEl.innerHTML = filtered.slice(0, 300).map((job) => `
-      <div class="job">
-        <h3><a href="${escapeHtml(job.job_url)}" target="_blank" rel="noopener">${escapeHtml(job.title)}</a></h3>
-        <div class="company">${escapeHtml(job.company)} &middot; ${escapeHtml(job.location)}</div>
-        <div class="tags">
-          ${job.site ? `<span class="tag">${escapeHtml(job.site)}</span>` : ""}
-          ${job.job_type ? `<span class="tag">${escapeHtml(job.job_type)}</span>` : ""}
-          ${job.date_posted ? `<span class="tag">${escapeHtml(job.date_posted)}</span>` : ""}
+    } else {
+      resultsEl.innerHTML = visibleJobs.slice(0, 300).map((job) => `
+        <div class="job">
+          <input type="checkbox" class="jobCheck" data-id="${App.escapeHtml(job.id)}" ${state.selected.has(job.id) ? "checked" : ""} />
+          <div class="body">
+            <h3><a href="${App.escapeHtml(job.job_url)}" target="_blank" rel="noopener">${App.escapeHtml(job.title)}</a></h3>
+            <div class="company">${App.escapeHtml(job.company)} &middot; ${App.escapeHtml(job.location)}</div>
+            <div class="tags">
+              ${job.site ? `<span class="tag">${App.escapeHtml(job.site)}</span>` : ""}
+              ${job.job_type ? `<span class="tag">${App.escapeHtml(job.job_type)}</span>` : ""}
+              ${job.date_posted ? `<span class="tag">${App.escapeHtml(job.date_posted)}</span>` : ""}
+            </div>
+          </div>
         </div>
-      </div>
-    `).join("");
+      `).join("");
+      resultsEl.querySelectorAll(".jobCheck").forEach((cb) => {
+        cb.addEventListener("change", () => {
+          if (cb.checked) state.selected.add(cb.dataset.id);
+          else state.selected.delete(cb.dataset.id);
+          updateSelectionUi();
+        });
+      });
+    }
+    updateSelectionUi();
   }
 
-  searchInput.addEventListener("input", (e) => { state.search = e.target.value; render(); });
-  siteFilter.addEventListener("change", (e) => { state.site = e.target.value; render(); });
-  typeFilter.addEventListener("change", (e) => { state.type = e.target.value; render(); });
+  function updateSelectionUi() {
+    const n = state.selected.size;
+    selectedCount.textContent = `${n} selected`;
+    saveSelectedBtn.disabled = n === 0;
+    exportSelectedBtn.disabled = n === 0;
+    const visibleIds = visibleJobs.map((j) => j.id);
+    selectAll.checked = visibleIds.length > 0 && visibleIds.every((id) => state.selected.has(id));
+  }
+
+  function selectedJobObjects() {
+    return state.jobs.filter((j) => state.selected.has(j.id));
+  }
+
+  searchInput.addEventListener("input", render);
+
+  selectAll.addEventListener("change", () => {
+    if (selectAll.checked) visibleJobs.forEach((j) => state.selected.add(j.id));
+    else visibleJobs.forEach((j) => state.selected.delete(j.id));
+    render();
+  });
+
+  saveSelectedBtn.addEventListener("click", () => {
+    App.saveJobs(selectedJobObjects());
+    alert(`Saved ${state.selected.size} job(s) to your personal page.`);
+  });
+
+  exportSelectedBtn.addEventListener("click", () => {
+    const includeDescription = confirm("Include full job descriptions in the PDF? Click OK for yes, Cancel for no.");
+    App.exportJobsToPdf(selectedJobObjects(), { includeDescription });
+  });
+
+  document.getElementById("tokenBtn").addEventListener("click", () => {
+    const current = App.getToken();
+    const next = prompt(
+      "GitHub Personal Access Token (scope: 'workflow'). Leave blank and press OK to clear it.",
+      current
+    );
+    if (next === null) return;
+    App.setToken(next.trim());
+    alert(next.trim() ? "Token saved in this browser." : "Token cleared.");
+  });
+
+  document.getElementById("runSearchBtn").addEventListener("click", async () => {
+    const siteMap = [
+      ["siteIndeed", "indeed"], ["siteLinkedin", "linkedin"], ["siteGoogle", "google"],
+      ["siteZip", "zip_recruiter"], ["siteGlassdoor", "glassdoor"], ["siteBayt", "bayt"],
+    ];
+    const sites = siteMap.filter(([id]) => document.getElementById(id).checked).map(([, name]) => name);
+    if (sites.length === 0) { alert("Select at least one site."); return; }
+
+    const scraperTerm = App.toScraperTerm(searchInput.value) || "jobs";
+    const location = document.getElementById("locationInput").value.trim();
+    const inputs = {
+      search_term: scraperTerm,
+      location: location,
+      country_indeed: document.getElementById("countryInput").value.trim(),
+      site_names: sites.join(","),
+      results_wanted: String(document.getElementById("resultsInput").value || "100"),
+      hours_old: String(document.getElementById("hoursOldInput").value || "168"),
+      job_type: document.getElementById("jobTypeInput").value,
+      is_remote: document.getElementById("remoteInput").checked ? "true" : "false",
+      easy_apply: document.getElementById("easyApplyInput").checked ? "true" : "false",
+      distance: String(document.getElementById("distanceInput").value || "50"),
+    };
+
+    const btn = document.getElementById("runSearchBtn");
+    btn.disabled = true;
+    btn.textContent = "Starting scrape…";
+    try {
+      await App.dispatchScrape(inputs);
+      alert("Scrape started! It usually takes a few minutes — check the Actions tab, then refresh this page once it finishes.");
+    } catch (err) {
+      console.error(err);
+      alert(`Could not start the scrape: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Run New Search (starts a fresh scrape)";
+    }
+  });
 
   fetch("data/jobs.json", { cache: "no-store" })
     .then((r) => r.json())
     .then((data) => {
       state.jobs = data.jobs || [];
-      populateFilterOptions();
       const generated = data.generated_at ? new Date(data.generated_at).toLocaleString() : "unknown";
       metaLine.textContent = `Last scraped: ${generated} — search term: "${data.search_term || ""}" in ${data.location || ""}`;
+      if (data.location) document.getElementById("locationInput").value = data.location;
       render();
     })
     .catch((err) => {

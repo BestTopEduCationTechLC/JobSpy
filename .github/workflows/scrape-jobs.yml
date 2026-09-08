@@ -7,11 +7,43 @@ on:
   workflow_dispatch:
     inputs:
       search_term:
-        description: "Job title / keywords to search for"
+        description: "Job title / keywords to search for (plain text; boolean AND/OR/NOT already resolved by the frontend)"
         required: false
         type: string
       location:
         description: "Location to search in"
+        required: false
+        type: string
+      country_indeed:
+        description: "Country for Indeed/Glassdoor (see README for valid names)"
+        required: false
+        type: string
+      site_names:
+        description: "Comma-separated sites: indeed,linkedin,google,zip_recruiter,glassdoor,bayt,naukri,bdjobs"
+        required: false
+        type: string
+      results_wanted:
+        description: "Number of results per site"
+        required: false
+        type: string
+      hours_old:
+        description: "Only jobs posted within this many hours"
+        required: false
+        type: string
+      job_type:
+        description: "fulltime, parttime, internship, or contract"
+        required: false
+        type: string
+      is_remote:
+        description: "Only remote jobs (true/false)"
+        required: false
+        type: string
+      easy_apply:
+        description: "Only easy-apply jobs (true/false)"
+        required: false
+        type: string
+      distance:
+        description: "Search radius in miles"
         required: false
         type: string
 
@@ -40,10 +72,18 @@ jobs:
           pip install jupyter nbconvert pandas
 
       - name: Update search config from manual trigger
-        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.search_term != '' || inputs.location != '') }}
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           INPUT_SEARCH_TERM: ${{ inputs.search_term }}
           INPUT_LOCATION: ${{ inputs.location }}
+          INPUT_COUNTRY_INDEED: ${{ inputs.country_indeed }}
+          INPUT_SITE_NAMES: ${{ inputs.site_names }}
+          INPUT_RESULTS_WANTED: ${{ inputs.results_wanted }}
+          INPUT_HOURS_OLD: ${{ inputs.hours_old }}
+          INPUT_JOB_TYPE: ${{ inputs.job_type }}
+          INPUT_IS_REMOTE: ${{ inputs.is_remote }}
+          INPUT_EASY_APPLY: ${{ inputs.easy_apply }}
+          INPUT_DISTANCE: ${{ inputs.distance }}
         run: |
           python - <<'EOF'
           import json
@@ -53,15 +93,42 @@ jobs:
           with open(path) as f:
               config = json.load(f)
 
-          search_term = os.environ.get("INPUT_SEARCH_TERM", "")
-          location = os.environ.get("INPUT_LOCATION", "")
+          def apply_str(key, env_name, extra=None):
+              value = os.environ.get(env_name, "")
+              if value:
+                  config[key] = value
+                  if extra:
+                      extra(value)
 
-          if search_term:
-              config["search_term"] = search_term
-              config["google_search_term"] = f"{search_term} jobs near {location or config['location']}"
-          if location:
-              config["location"] = location
-              config["country_indeed"] = location
+          def apply_int(key, env_name):
+              value = os.environ.get(env_name, "")
+              if value:
+                  config[key] = int(value)
+
+          def apply_bool(key, env_name):
+              value = os.environ.get(env_name, "")
+              if value:
+                  config[key] = value.lower() == "true"
+
+          search_term_holder = {}
+
+          def remember_search_term(value):
+              search_term_holder["value"] = value
+
+          apply_str("search_term", "INPUT_SEARCH_TERM", remember_search_term)
+          apply_str("location", "INPUT_LOCATION")
+          apply_str("country_indeed", "INPUT_COUNTRY_INDEED")
+          apply_str("site_names", "INPUT_SITE_NAMES")
+          apply_int("results_wanted", "INPUT_RESULTS_WANTED")
+          apply_int("hours_old", "INPUT_HOURS_OLD")
+          apply_str("job_type", "INPUT_JOB_TYPE")
+          apply_bool("is_remote", "INPUT_IS_REMOTE")
+          apply_bool("easy_apply", "INPUT_EASY_APPLY")
+          apply_int("distance", "INPUT_DISTANCE")
+
+          if "value" in search_term_holder:
+              location = os.environ.get("INPUT_LOCATION", "") or config["location"]
+              config["google_search_term"] = f"{search_term_holder['value']} jobs near {location}"
 
           with open(path, "w") as f:
               json.dump(config, f, indent=2)
@@ -84,6 +151,10 @@ jobs:
               f.write(f'export SITE_NAMES="{config["site_names"]}"\n')
               f.write(f'export RESULTS_WANTED="{config["results_wanted"]}"\n')
               f.write(f'export HOURS_OLD="{config["hours_old"]}"\n')
+              f.write(f'export JOB_TYPE="{config.get("job_type", "")}"\n')
+              f.write(f'export IS_REMOTE="{str(config.get("is_remote", False)).lower()}"\n')
+              f.write(f'export EASY_APPLY="{str(config.get("easy_apply", False)).lower()}"\n')
+              f.write(f'export DISTANCE="{config.get("distance", "")}"\n')
           EOF
           source job_env.sh
           jupyter nbconvert --to notebook --execute --output JOBSCRAPPER.out.ipynb JOBSCRAPPER.ipynb

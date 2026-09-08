@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Personal Interface</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="topnav" id="topnav"></nav>
+
+  <div class="wrap">
+    <h1 id="pageTitle">Personal Interface<span class="count-badge" id="countBadge">0</span></h1>
+    <p class="sub">Jobs you've saved from the search page, kept in this browser only.</p>
+
+    <div class="toolbar">
+      <label class="checkline"><input type="checkbox" id="selectAll" /> Select all</label>
+      <span id="selectedCount" class="hint" style="margin: 0;">0 selected</span>
+      <span class="spacer"></span>
+      <button type="button" id="exportSelectedBtn" disabled>Export selected to PDF</button>
+      <button type="button" id="exportAllBtn" disabled>Export all to PDF</button>
+      <button type="button" class="danger" id="removeSelectedBtn" disabled>Remove selected</button>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  const App = window.JobSpyApp;
+  const name = App.ensureUsername();
+  App.renderNav("personal");
+  document.title = `${name} personal interface test`;
+  document.getElementById("pageTitle").innerHTML =
+    `${App.escapeHtml(name)} personal interface test<span class="count-badge" id="countBadge">0</span>`;
+
+  const state = { selected: new Set() };
+  const resultsEl = document.getElementById("results");
+  const countBadge = document.getElementById("countBadge");
+  const selectAll = document.getElementById("selectAll");
+  const selectedCount = document.getElementById("selectedCount");
+  const exportSelectedBtn = document.getElementById("exportSelectedBtn");
+  const exportAllBtn = document.getElementById("exportAllBtn");
+  const removeSelectedBtn = document.getElementById("removeSelectedBtn");
+
+  function jobs() { return App.getSavedJobs(); }
+
+  function render() {
+    const list = jobs();
+    countBadge.textContent = list.length;
+    exportAllBtn.disabled = list.length === 0;
+
+    if (list.length === 0) {
+      resultsEl.innerHTML = '<div class="empty">No saved jobs yet. Go to <a href="index.html">Search</a> and save some.</div>';
+    } else {
+      resultsEl.innerHTML = list.map((job) => `
+        <div class="job">
+          <input type="checkbox" class="jobCheck" data-id="${App.escapeHtml(job.id)}" ${state.selected.has(job.id) ? "checked" : ""} />
+          <div class="body">
+            <h3><a href="${App.escapeHtml(job.job_url)}" target="_blank" rel="noopener">${App.escapeHtml(job.title)}</a></h3>
+            <div class="company">${App.escapeHtml(job.company)} &middot; ${App.escapeHtml(job.location)}</div>
+            <div class="tags">
+              ${job.site ? `<span class="tag">${App.escapeHtml(job.site)}</span>` : ""}
+              ${job.job_type ? `<span class="tag">${App.escapeHtml(job.job_type)}</span>` : ""}
+              ${job.date_posted ? `<span class="tag">${App.escapeHtml(job.date_posted)}</span>` : ""}
+            </div>
+          </div>
+          <button type="button" class="danger remove" data-id="${App.escapeHtml(job.id)}">Remove</button>
+        </div>
+      `).join("");
+      resultsEl.querySelectorAll(".jobCheck").forEach((cb) => {
+        cb.addEventListener("change", () => {
+          if (cb.checked) state.selected.add(cb.dataset.id);
+          else state.selected.delete(cb.dataset.id);
+          updateSelectionUi();
+        });
+      });
+      resultsEl.querySelectorAll(".remove").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          App.removeSavedJobs([btn.dataset.id]);
+          state.selected.delete(btn.dataset.id);
+          render();
+        });
+      });
+    }
+    updateSelectionUi();
+  }
+
+  function updateSelectionUi() {
+    const n = state.selected.size;
+    selectedCount.textContent = `${n} selected`;
+    exportSelectedBtn.disabled = n === 0;
+    removeSelectedBtn.disabled = n === 0;
+    const ids = jobs().map((j) => j.id);
+    selectAll.checked = ids.length > 0 && ids.every((id) => state.selected.has(id));
+  }
+
+  selectAll.addEventListener("change", () => {
+    const ids = jobs().map((j) => j.id);
+    if (selectAll.checked) ids.forEach((id) => state.selected.add(id));
+    else state.selected.clear();
+    render();
+  });
+
+  function selectedJobObjects() {
+    return jobs().filter((j) => state.selected.has(j.id));
+  }
+
+  exportSelectedBtn.addEventListener("click", () => {
+    const includeDescription = confirm("Include full job descriptions in the PDF? Click OK for yes, Cancel for no.");
+    App.exportJobsToPdf(selectedJobObjects(), { includeDescription });
+  });
+
+  exportAllBtn.addEventListener("click", () => {
+    const includeDescription = confirm("Include full job descriptions in the PDF? Click OK for yes, Cancel for no.");
+    App.exportJobsToPdf(jobs(), { includeDescription });
+  });
+
+  removeSelectedBtn.addEventListener("click", () => {
+    App.removeSavedJobs(Array.from(state.selected));
+    state.selected.clear();
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

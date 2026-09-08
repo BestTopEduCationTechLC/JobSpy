@@ -5,5 +5,9 @@
   "country_indeed": "Singapore",
   "site_names": "indeed,linkedin,google",
   "results_wanted": 100,
-  "hours_old": 168
+  "hours_old": 168,
+  "job_type": "",
+  "is_remote": false,
+  "easy_apply": false,
+  "distance": 50
 }

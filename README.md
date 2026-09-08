@@ -261,20 +261,53 @@ Naukri specific
 
 ## GitHub Pages frontend + weekly auto-scrape
 
-This repo includes a self-contained static frontend (`docs/index.html`) you can serve with
-GitHub Pages, plus a scheduled scraper that keeps its data fresh:
+This repo includes a self-contained static site under `docs/` you can serve with GitHub Pages,
+plus a scheduled scraper that keeps its data fresh.
 
-- **`scraper/JOBSCRAPPER.ipynb`** — the scraper notebook. Its parameters (search term,
-  location, sites, etc.) come from `scraper/search_config.json`.
-- **`.github/workflows/scrape-jobs.yml`** — runs every Monday at 06:00 UTC (and on-demand via
-  *Actions → Scrape jobs for GitHub Pages → Run workflow*). It executes the notebook, converts
-  the resulting CSV into `docs/data/jobs.json`, and commits the update.
-- **`docs/index.html`** — loads `docs/data/jobs.json` and lets a visitor filter results live by
-  keyword, site, or job type. Because GitHub Pages is static hosting, the search box filters
-  the already-scraped results instantly rather than triggering a new scrape.
-- To scrape a **new search term or location**, run the workflow manually from the Actions tab
-  and fill in the `search_term`/`location` inputs — that term also becomes the one used by
-  future weekly runs.
+### Pages
+
+- **`docs/index.html`** — the search page. Loads `docs/data/jobs.json` and filters it live with
+  a boolean search box (`AND`, `OR`, `NOT`, `"exact phrases"`, `(grouping)`), plus an "Advanced
+  scraper parameters" panel exposing JobSpy's full parameter set (sites, location, country,
+  job type, remote-only, easy-apply, distance, results wanted, hours old). Jobs can be selected
+  via checkbox, saved to your personal page, or exported straight to PDF.
+- **`docs/personal.html`** — "*{your name} personal interface test*": the jobs you saved from
+  the search page, kept in `localStorage` in your browser. Supports removing jobs and exporting
+  a selection (or everything) to PDF, with or without full descriptions.
+- **`docs/contact.html`** — contact email and a placeholder legal-disclaimer section (content
+  intentionally not filled in yet).
+- **`index.html`** at the repo root just redirects into `docs/index.html`, in case GitHub Pages
+  is configured to build from the branch root instead of `/docs`.
+
+There's no backend here — "signing in" is just a display-name prompt stored in `localStorage`
+(no password, no server), used only to personalize the saved-jobs page title.
+
+### Boolean search vs. the scraper's own query syntax
+
+The search box's `AND` / `OR` / `NOT` are resolved **client-side, before anything is sent to the
+scraper** — never passed into JobSpy directly:
+
+- Typing in the box filters `docs/data/jobs.json` using a real boolean parser (supports
+  parentheses and quoted phrases).
+- Clicking **Run New Search** takes that same text and rewrites it into JobSpy/Indeed's own
+  query syntax first (`NOT word` → `-word`, implicit `AND` via spaces, `OR` kept as-is) — see
+  `toScraperTerm()` in `docs/assets/app.js` — so the raw `AND`/`OR`/`NOT` keywords themselves
+  never reach `search_term`.
+
+### Triggering a new scrape from the page
+
+GitHub Pages is static hosting — it can't run server code or hold a secret safely. The **Run
+New Search** button works by calling GitHub's REST API for `workflow_dispatch` directly from
+your browser, using a Personal Access Token (scope: `workflow`) that you paste in once via the
+**GitHub token…** button. The token is stored only in your browser's `localStorage` and sent
+only to `api.github.com` — this project has nowhere else to keep it. Create a token at
+https://github.com/settings/tokens.
+
+`.github/workflows/scrape-jobs.yml` runs every Monday at 06:00 UTC regardless, and also accepts
+all of the above as `workflow_dispatch` inputs if you'd rather trigger it from the Actions tab
+by hand. Either way it executes the notebook, converts the resulting CSV into
+`docs/data/jobs.json` via `scraper/csv_to_json.py`, and commits the update — which also becomes
+the config used by the next scheduled run.
 
 **Enabling Pages:** in the repo settings, set *Pages → Source* to the `docs/` folder on this
 branch. Once enabled, the site updates automatically after every scrape commit.
