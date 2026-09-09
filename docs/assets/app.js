@@ -419,8 +419,8 @@
         ${link("personal.html", "My Saved Jobs", "personal")}
         ${link("contact.html", "Contact", "contact")}
         <span class="whoami">
-          ${user ? `Hi, ${escapeHtml(user.username)}` : "Not signed in"}
-          <button type="button" id="navAuthBtn">${user ? "sign out" : "sign in"}</button>
+          ${user ? `<span class="whoami-name">Hi, <strong>${escapeHtml(user.username)}</strong></span>` : ""}
+          <button type="button" id="navAuthBtn" class="${user ? "" : "signin"}">${user ? "Sign out" : "Sign in"}</button>
         </span>
       </div>`;
     const btn = document.getElementById("navAuthBtn");

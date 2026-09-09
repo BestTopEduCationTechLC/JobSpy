@@ -129,24 +129,39 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .topnav a.navlink.active,
 .topnav a.navlink:hover { color: var(--text); border-bottom-color: var(--accent); }
 .topnav .whoami {
-  font-size: 0.8rem;
-  color: var(--muted);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   padding-left: 14px;
   border-left: 1px solid var(--border);
 }
+.topnav .whoami-name {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.topnav .whoami-name strong { color: var(--text); font-weight: 700; }
 .topnav .whoami button {
-  background: none;
-  border: none;
-  color: var(--accent);
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
   cursor: pointer;
   font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
 }
-.topnav .whoami button:hover { color: var(--accent-hover); text-decoration: underline; }
+.topnav .whoami button:hover { background: var(--bg-subtle); border-color: var(--muted); }
+.topnav .whoami button:active { transform: translateY(1px); }
+.topnav .whoami button.signin {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.topnav .whoami button.signin:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 /* Forms */
 input[type="text"], input[type="password"], input[type="number"], select {
