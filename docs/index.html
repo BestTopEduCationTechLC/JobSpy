@@ -81,7 +81,7 @@
       <span class="spacer"></span>
       <a class="btn" href="#" id="actionsLink" target="_blank" rel="noopener">Open Actions tab</a>
     </div>
-    <p class="hint" id="authHint" style="display:none;">Sign in with GitHub (top right) to run a new search or save jobs.</p>
+    <p class="hint" id="authHint" style="display:none;">Sign in (top right) to run a new search or save jobs.</p>
 
     <div class="toolbar">
       <label class="checkline"><input type="checkbox" id="selectAll" /> Select all shown</label>
@@ -182,7 +182,7 @@
   });
 
   saveSelectedBtn.addEventListener("click", async () => {
-    if (!(await App.getUser())) { App.login(); return; }
+    if (!(await App.getUser())) { App.openAuthModal(); return; }
     try {
       const n = state.selected.size;
       await App.saveJobs(selectedJobObjects());
@@ -198,7 +198,7 @@
   });
 
   document.getElementById("runSearchBtn").addEventListener("click", async () => {
-    if (!(await App.getUser())) { App.login(); return; }
+    if (!(await App.getUser())) { App.openAuthModal(); return; }
     const siteMap = [
       ["siteIndeed", "indeed"], ["siteLinkedin", "linkedin"], ["siteGoogle", "google"],
       ["siteZip", "zip_recruiter"], ["siteGlassdoor", "glassdoor"], ["siteBayt", "bayt"],

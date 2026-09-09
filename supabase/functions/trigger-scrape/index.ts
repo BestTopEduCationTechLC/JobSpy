@@ -3,7 +3,7 @@
 // never see or need a token of their own.
 //
 // Deploy: supabase functions deploy trigger-scrape
-// Secrets: supabase secrets set GITHUB_BOT_TOKEN=... [ALLOWED_GITHUB_LOGINS=...]
+// Secrets: supabase secrets set GITHUB_BOT_TOKEN=... [ALLOWED_USERNAMES=...]
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -13,7 +13,9 @@ const GH_WORKFLOW = Deno.env.get("GH_WORKFLOW") ?? "scrape-jobs.yml";
 const GH_REF = Deno.env.get("GH_REF") ?? "TESTING";
 
 const GITHUB_BOT_TOKEN = Deno.env.get("GITHUB_BOT_TOKEN");
-const ALLOWED_GITHUB_LOGINS = (Deno.env.get("ALLOWED_GITHUB_LOGINS") ?? "")
+// Usernames here refer to this app's own login (Supabase email/password),
+// not GitHub accounts — see docs/assets/app.js's usernameToEmail().
+const ALLOWED_USERNAMES = (Deno.env.get("ALLOWED_USERNAMES") ?? "")
   .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -44,8 +46,8 @@ Deno.serve(async (req) => {
     return json({ error: "Not signed in" }, 401);
   }
 
-  const githubLogin = (user.user_metadata?.user_name || user.user_metadata?.preferred_username || "").toLowerCase();
-  if (ALLOWED_GITHUB_LOGINS.length > 0 && !ALLOWED_GITHUB_LOGINS.includes(githubLogin)) {
+  const username = (user.user_metadata?.username || (user.email || "").split("@")[0] || "").toLowerCase();
+  if (ALLOWED_USERNAMES.length > 0 && !ALLOWED_USERNAMES.includes(username)) {
     return json({ error: "Not authorized to trigger scrapes" }, 403);
   }
 

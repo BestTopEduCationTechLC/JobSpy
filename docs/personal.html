@@ -12,7 +12,7 @@
   <div class="wrap">
     <h1 id="pageTitle">Personal Interface<span class="count-badge" id="countBadge">0</span></h1>
     <p class="sub">Jobs you've saved from the search page, stored on your account.</p>
-    <p class="hint" id="authHint" style="display:none;">Sign in with GitHub (top right) to see your saved jobs.</p>
+    <p class="hint" id="authHint" style="display:none;">Sign in (top right) to see your saved jobs.</p>
 
     <div class="toolbar">
       <label class="checkline"><input type="checkbox" id="selectAll" /> Select all</label>
@@ -49,7 +49,7 @@
 
   if (!user) {
     document.getElementById("authHint").style.display = "block";
-    resultsEl.innerHTML = `<div class="empty">Sign in with GitHub to view your saved jobs.</div>`;
+    resultsEl.innerHTML = `<div class="empty">Sign in to view your saved jobs.</div>`;
     return;
   }
 

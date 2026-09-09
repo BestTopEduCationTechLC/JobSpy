@@ -1,7 +1,7 @@
-// Shared logic for the JobSpy Search static site: Supabase auth (GitHub
-// login), server-stored saved jobs (Postgres + Row Level Security), boolean
-// search parsing, triggering the scraper workflow via a Supabase Edge
-// Function, and client-side PDF export.
+// Shared logic for the JobSpy Search static site: Supabase auth (username +
+// password, no GitHub login), server-stored saved jobs (Postgres + Row Level
+// Security), boolean search parsing, triggering the scraper workflow via a
+// Supabase Edge Function, and client-side PDF export.
 (function (global) {
   "use strict";
 
@@ -13,7 +13,18 @@
 
   const supabase = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ---------- Auth ----------
+  // ---------- Auth (username + password, stored in Supabase) ----------
+  // Supabase's built-in auth is email-based, so a username is mapped to a
+  // synthetic, never-emailed address (username@jobspy.local) — the user only
+  // ever sees/types a username. The real display name is also stored in
+  // user_metadata.username so it's available without decoding the email.
+  const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
+  const EMAIL_DOMAIN = "jobspy.local";
+
+  function usernameToEmail(username) {
+    return `${username.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
+  }
+
   async function getUser() {
     const { data: { session } } = await supabase.auth.getSession();
     return session ? sessionToUser(session) : null;
@@ -23,16 +34,39 @@
     const meta = session.user.user_metadata || {};
     return {
       id: session.user.id,
-      username: meta.user_name || meta.preferred_username || session.user.email || "User",
-      avatar_url: meta.avatar_url || "",
+      username: meta.username || (session.user.email || "").split("@")[0] || "User",
     };
   }
 
-  function login() {
-    supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: { redirectTo: location.origin + location.pathname.replace(/[^/]*$/, "index.html") },
+  function validateCredentials(username, password) {
+    if (!USERNAME_RE.test(username)) {
+      return "Username must be 3-32 characters: letters, numbers, . _ or - only.";
+    }
+    if (!password || password.length < 6) {
+      return "Password must be at least 6 characters.";
+    }
+    return null;
+  }
+
+  async function signUp(username, password) {
+    const err = validateCredentials(username, password);
+    if (err) throw new Error(err);
+    const { error } = await supabase.auth.signUp({
+      email: usernameToEmail(username),
+      password,
+      options: { data: { username: username.trim().toLowerCase() } },
     });
+    if (error) throw new Error(error.message);
+  }
+
+  async function signIn(username, password) {
+    const err = validateCredentials(username, password);
+    if (err) throw new Error(err);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: usernameToEmail(username),
+      password,
+    });
+    if (error) throw new Error(error.message);
   }
 
   async function logout() {
@@ -250,7 +284,7 @@
     doc.save(`jobspy-export-${Date.now()}.pdf`);
   }
 
-  // ---------- Shared nav ----------
+  // ---------- Shared nav + sign-in/sign-up modal ----------
   async function renderNav(activePage) {
     const container = document.getElementById("topnav");
     if (!container) return;
@@ -265,12 +299,78 @@
         ${link("contact.html", "Contact", "contact")}
         <span class="whoami">
           ${user ? `Hi, ${escapeHtml(user.username)}` : "Not signed in"}
-          <button type="button" id="navAuthBtn">${user ? "sign out" : "sign in with GitHub"}</button>
+          <button type="button" id="navAuthBtn">${user ? "sign out" : "sign in"}</button>
         </span>
       </div>`;
     const btn = document.getElementById("navAuthBtn");
-    if (btn) btn.addEventListener("click", () => (user ? logout() : login()));
+    if (btn) btn.addEventListener("click", () => (user ? logout() : openAuthModal()));
     return user;
+  }
+
+  function openAuthModal() {
+    if (document.getElementById("authModalBackdrop")) return;
+
+    let mode = "signin"; // or "signup"
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.id = "authModalBackdrop";
+    backdrop.innerHTML = `
+      <div class="modal">
+        <h2 id="authModalTitle">Sign in</h2>
+        <div class="field">
+          <label for="authUsername">Username</label>
+          <input type="text" id="authUsername" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="authPassword">Password</label>
+          <input type="password" id="authPassword" autocomplete="current-password" />
+        </div>
+        <p class="hint" id="authModalError" style="display:none; color: var(--danger);"></p>
+        <div class="actions">
+          <button type="button" id="authModalToggle">Need an account? Sign up</button>
+          <span class="spacer"></span>
+          <button type="button" id="authModalCancel">Cancel</button>
+          <button type="button" class="primary" id="authModalSubmit">Sign in</button>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+
+    const title = document.getElementById("authModalTitle");
+    const toggleBtn = document.getElementById("authModalToggle");
+    const submitBtn = document.getElementById("authModalSubmit");
+    const errorEl = document.getElementById("authModalError");
+    const usernameEl = document.getElementById("authUsername");
+    const passwordEl = document.getElementById("authPassword");
+
+    function close() { backdrop.remove(); }
+
+    function applyMode() {
+      title.textContent = mode === "signin" ? "Sign in" : "Create account";
+      submitBtn.textContent = mode === "signin" ? "Sign in" : "Create account";
+      toggleBtn.textContent = mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in";
+      errorEl.style.display = "none";
+    }
+
+    toggleBtn.addEventListener("click", () => { mode = mode === "signin" ? "signup" : "signin"; applyMode(); });
+    document.getElementById("authModalCancel").addEventListener("click", close);
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+
+    submitBtn.addEventListener("click", async () => {
+      errorEl.style.display = "none";
+      submitBtn.disabled = true;
+      try {
+        if (mode === "signin") await signIn(usernameEl.value, passwordEl.value);
+        else await signUp(usernameEl.value, passwordEl.value);
+        location.reload();
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = "block";
+        submitBtn.disabled = false;
+      }
+    });
+
+    applyMode();
+    usernameEl.focus();
   }
 
   function escapeHtml(str) {
@@ -280,7 +380,7 @@
   }
 
   global.JobSpyApp = {
-    supabase, getUser, login, logout,
+    supabase, getUser, signUp, signIn, logout, openAuthModal,
     getSavedJobs, saveJobs, removeSavedJob,
     dispatchScrape, actionsRunUrl,
     parseBooleanQuery, buildPredicate, toScraperTerm,
