@@ -46,6 +46,10 @@ on:
         description: "Search radius in miles"
         required: false
         type: string
+      run_id:
+        description: "Internal: Supabase search_runs.id — set by the frontend, leave blank for manual runs"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -57,6 +61,11 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    env:
+      # Only set for a user-triggered private search (came from the frontend via
+      # the trigger-scrape Edge Function). Empty for the weekly schedule and for
+      # a manual run started directly from the Actions tab.
+      RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.run_id || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -159,15 +168,31 @@ jobs:
           source job_env.sh
           jupyter nbconvert --to notebook --execute --output JOBSCRAPPER.out.ipynb JOBSCRAPPER.ipynb
 
-      - name: Convert results to JSON for the frontend
+      - name: Upload private results to Supabase
+        if: ${{ env.RUN_ID != '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scraper/upload_results.py scraper/jobs.csv "$RUN_ID"
+
+      - name: Convert results to JSON for the shared frontend view
+        if: ${{ env.RUN_ID == '' }}
         run: |
           mkdir -p docs/data
           python scraper/csv_to_json.py scraper/jobs.csv scraper/search_config.json docs/data/jobs.json
 
-      - name: Commit and push updated data
+      - name: Commit and push updated shared data
+        if: ${{ env.RUN_ID == '' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/data/jobs.json scraper/search_config.json
           git diff --cached --quiet || git commit -m "chore: weekly job scrape update"
           git push
+
+      - name: Mark run failed
+        if: ${{ failure() && env.RUN_ID != '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scraper/mark_run_failed.py "$RUN_ID" "Scrape failed — check run $GITHUB_RUN_ID in the Actions log."

@@ -266,26 +266,31 @@ plus a scheduled scraper that keeps its data fresh.
 
 ### Pages
 
-- **`docs/index.html`** — the search page. Loads `docs/data/jobs.json` and filters it live with
-  a boolean search box (`AND`, `OR`, `NOT`, `"exact phrases"`, `(grouping)`), plus an "Advanced
-  scraper parameters" panel exposing JobSpy's full parameter set (sites, location, country,
-  job type, remote-only, easy-apply, distance, results wanted, hours old). Jobs can be selected
-  via checkbox, saved to your personal page, or exported straight to PDF.
-- **`docs/personal.html`** — "*{your GitHub username} personal interface test*": the jobs you
-  saved from the search page, stored server-side against your account (works across devices).
-  Supports removing jobs and exporting a selection (or everything) to PDF, with or without full
-  descriptions.
+- **`docs/index.html`** — the search page. Loads `docs/data/jobs.json` (the shared, publicly
+  browsable dataset) and filters it live with a boolean search box (`AND`, `OR`, `NOT`,
+  `"exact phrases"`, `(grouping)`), plus an "Advanced scraper parameters" panel exposing
+  JobSpy's full parameter set (sites, location, country, job type, remote-only, easy-apply,
+  distance, results wanted, hours old). Clicking **Run New Search** starts a private scrape
+  tied to your account — its results replace the view with only *your* results, never the
+  shared dataset. Jobs can be selected via checkbox, saved to your personal page, or exported
+  straight to PDF.
+- **`docs/personal.html`** — "*{your username} personal interface test*": jobs you saved from
+  the search page, your account's search history (each past run's own private results,
+  re-viewable anytime), and an "Account" section to optionally add and confirm a real contact
+  email. Supports removing jobs and exporting a selection (or everything) to PDF, with or
+  without full descriptions.
 - **`docs/contact.html`** — contact email and a placeholder legal-disclaimer section (content
   intentionally not filled in yet).
 - **`index.html`** at the repo root just redirects into `docs/index.html`, in case GitHub Pages
   is configured to build from the branch root instead of `/docs`.
 
-Login, saved jobs, and the scrape-trigger button all depend on Supabase — see
-[`supabase/README.md`](supabase/README.md) for the full setup (username/password auth, the
-`saved_jobs` table + Row Level Security, and the Edge Function that triggers scrapes). Until
-`SUPABASE_URL` / `SUPABASE_ANON_KEY` in `docs/assets/app.js` are set to a real project, the site
-still works for browsing/searching the already-scraped data, but signing in, saving jobs, and
-"Run New Search" won't function.
+Login, saved jobs, private search results, and the scrape-trigger button all depend on
+Supabase — see [`supabase/README.md`](supabase/README.md) for the full setup (username/password
+auth, the `saved_jobs`/`search_runs`/`search_results` tables + Row Level Security, the GitHub
+repo secrets the workflow needs to write private results, and the Edge Function that triggers
+scrapes). Until `SUPABASE_URL` / `SUPABASE_ANON_KEY` in `docs/assets/app.js` are set to a real
+project, the site still works for browsing/searching the shared already-scraped data, but
+signing in, saving jobs, private searches, and "Run New Search" won't function.
 
 ### Boolean search vs. the scraper's own query syntax
 

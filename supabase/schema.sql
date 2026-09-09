@@ -35,3 +35,85 @@ create policy "Users can update their own saved jobs"
 create policy "Users can delete their own saved jobs"
   on public.saved_jobs for delete
   using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Private per-user search runs. Each "Run New Search" click creates one row
+-- here; the GitHub Actions workflow writes that run's results into
+-- search_results (using the service role key, which bypasses RLS) instead of
+-- the one shared docs/data/jobs.json — so one user's search never overwrites
+-- or leaks into another user's results.
+
+create table if not exists public.search_runs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  search_term text,
+  location text,
+  params jsonb not null default '{}'::jsonb,
+  status text not null default 'pending', -- pending | running | completed | failed
+  error text,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+alter table public.search_runs enable row level security;
+
+create policy "Users can view their own search runs"
+  on public.search_runs for select
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own search runs"
+  on public.search_runs for insert
+  with check (auth.uid() = user_id);
+
+-- No update/delete policy for regular users: only the GitHub Actions workflow
+-- (via the service role key, which ignores RLS entirely) transitions a run's
+-- status to running/completed/failed.
+
+create table if not exists public.search_results (
+  run_id uuid not null references public.search_runs(id) on delete cascade,
+  job_id text not null,
+  title text,
+  company text,
+  location text,
+  job_url text,
+  job_type text,
+  site text,
+  date_posted text,
+  description text,
+  primary key (run_id, job_id)
+);
+
+alter table public.search_results enable row level security;
+
+create policy "Users can view results of their own search runs"
+  on public.search_results for select
+  using (exists (
+    select 1 from public.search_runs r
+    where r.id = search_results.run_id and r.user_id = auth.uid()
+  ));
+
+-- No insert/update/delete policy for regular users: results are written only
+-- by the GitHub Actions workflow via the service role key.
+
+-- ---------------------------------------------------------------------------
+-- Lets the frontend resolve "username" -> the account's current login email
+-- at sign-in time, without exposing auth.users or requiring login to keep
+-- using a synthetic email forever. If a user later confirms a real contact
+-- email (see docs/assets/app.js updateContactEmail()), Supabase updates
+-- auth.users.email to that real address once confirmed, and this function
+-- transparently starts returning it — login-by-username keeps working either
+-- way since it always looks up whatever the current email is.
+
+create or replace function public.get_login_email(p_username text)
+returns text
+language sql
+security definer
+set search_path = public
+as $$
+  select email from auth.users
+  where lower(raw_user_meta_data->>'username') = lower(p_username)
+  limit 1;
+$$;
+
+revoke all on function public.get_login_email(text) from public;
+grant execute on function public.get_login_email(text) to anon, authenticated;

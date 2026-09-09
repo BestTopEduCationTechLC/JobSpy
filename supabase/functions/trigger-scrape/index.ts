@@ -52,11 +52,29 @@ Deno.serve(async (req) => {
   }
 
   let inputs = {};
+  let runId = "";
   try {
     const body = await req.json();
     inputs = body?.inputs ?? {};
+    runId = body?.run_id ?? "";
   } catch (_e) {
     // no body / invalid JSON -> use defaults
+  }
+
+  if (!runId) {
+    return json({ error: "Missing run_id" }, 400);
+  }
+
+  // Confirm this run actually belongs to the caller before dispatching —
+  // supabaseClient carries the caller's own JWT, so RLS on search_runs means
+  // this select returns nothing for a run_id that isn't theirs.
+  const { data: run, error: runError } = await supabaseClient
+    .from("search_runs")
+    .select("id")
+    .eq("id", runId)
+    .single();
+  if (runError || !run) {
+    return json({ error: "Unknown or inaccessible run_id" }, 403);
   }
 
   const ghRes = await fetch(
@@ -68,7 +86,7 @@ Deno.serve(async (req) => {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
-      body: JSON.stringify({ ref: GH_REF, inputs }),
+      body: JSON.stringify({ ref: GH_REF, inputs: { ...inputs, run_id: runId } }),
     }
   );
 

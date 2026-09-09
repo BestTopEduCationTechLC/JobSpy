@@ -79,9 +79,11 @@
     <div class="toolbar">
       <button type="button" class="primary" id="runSearchBtn">Run New Search (starts a fresh scrape)</button>
       <span class="spacer"></span>
+      <button type="button" id="backToAllBtn" style="display:none;">&larr; Back to all jobs</button>
       <a class="btn" href="#" id="actionsLink" target="_blank" rel="noopener">Open Actions tab</a>
     </div>
     <p class="hint" id="authHint" style="display:none;">Sign in (top right) to run a new search or save jobs.</p>
+    <p class="hint" id="runStatus" style="display:none;"></p>
 
     <div class="toolbar">
       <label class="checkline"><input type="checkbox" id="selectAll" /> Select all shown</label>
@@ -110,7 +112,9 @@
   document.getElementById("actionsLink").href = App.actionsRunUrl();
   if (!currentUser) document.getElementById("authHint").style.display = "block";
 
-  const state = { jobs: [], selected: new Set() };
+  // state.jobs is whatever's currently on screen — either the shared,
+  // publicly-browsable dataset, or one user's own private search results.
+  const state = { jobs: [], sharedJobs: [], selected: new Set(), viewingPrivate: false, stopPolling: null };
 
   const resultsEl = document.getElementById("results");
   const searchInput = document.getElementById("searchInput");
@@ -120,6 +124,23 @@
   const selectedCount = document.getElementById("selectedCount");
   const saveSelectedBtn = document.getElementById("saveSelectedBtn");
   const exportSelectedBtn = document.getElementById("exportSelectedBtn");
+  const runStatusEl = document.getElementById("runStatus");
+  const backToAllBtn = document.getElementById("backToAllBtn");
+
+  function showRunStatus(text) {
+    runStatusEl.textContent = text;
+    runStatusEl.style.display = text ? "block" : "none";
+  }
+
+  backToAllBtn.addEventListener("click", () => {
+    if (state.stopPolling) { state.stopPolling(); state.stopPolling = null; }
+    state.viewingPrivate = false;
+    state.jobs = state.sharedJobs;
+    backToAllBtn.style.display = "none";
+    showRunStatus("");
+    metaLine.textContent = state.sharedMetaLine || "";
+    render();
+  });
 
   let visibleJobs = [];
 
@@ -225,8 +246,40 @@
     btn.disabled = true;
     btn.textContent = "Starting scrape…";
     try {
-      await App.dispatchScrape(inputs);
-      alert("Scrape started! It usually takes a few minutes — check the Actions tab, then refresh this page once it finishes.");
+      const run = await App.createSearchRun({
+        searchTerm: scraperTerm,
+        location: targetLocation,
+        params: inputs,
+      });
+      await App.dispatchScrape(inputs, run.id);
+
+      if (state.stopPolling) state.stopPolling();
+      state.viewingPrivate = true;
+      backToAllBtn.style.display = "inline-block";
+      showRunStatus("Your search is running — this usually takes a few minutes…");
+      resultsEl.innerHTML = "";
+
+      state.stopPolling = App.pollSearchRun(run.id, async (updatedRun, pollError) => {
+        if (pollError) {
+          showRunStatus(`Could not check search status: ${pollError.message}`);
+          return;
+        }
+        if (updatedRun.status === "failed") {
+          showRunStatus(`Search failed: ${updatedRun.error || "unknown error"}`);
+          return;
+        }
+        if (updatedRun.status === "completed") {
+          showRunStatus("");
+          try {
+            state.jobs = await App.getSearchResults(run.id);
+          } catch (err) {
+            showRunStatus(`Could not load results: ${err.message}`);
+            return;
+          }
+          metaLine.textContent = `Your private results for "${updatedRun.search_term || ""}" in ${updatedRun.location || ""} — ${state.jobs.length} job(s)`;
+          render();
+        }
+      }, 8000);
     } catch (err) {
       console.error(err);
       alert(`Could not start the scrape: ${err.message}`);
@@ -239,9 +292,13 @@
   fetch("data/jobs.json", { cache: "no-store" })
     .then((r) => r.json())
     .then((data) => {
-      state.jobs = data.jobs || [];
+      state.sharedJobs = data.jobs || [];
       const generated = data.generated_at ? new Date(data.generated_at).toLocaleString() : "unknown";
-      metaLine.textContent = `Last scraped: ${generated} — search term: "${data.search_term || ""}" in ${data.location || ""}`;
+      state.sharedMetaLine = `Last scraped: ${generated} — search term: "${data.search_term || ""}" in ${data.location || ""}`;
+      if (!state.viewingPrivate) {
+        state.jobs = state.sharedJobs;
+        metaLine.textContent = state.sharedMetaLine;
+      }
       if (data.location) document.getElementById("locationInput").value = data.location;
       render();
     })

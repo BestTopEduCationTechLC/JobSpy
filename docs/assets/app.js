@@ -62,16 +62,43 @@
   async function signIn(username, password) {
     const err = validateCredentials(username, password);
     if (err) throw new Error(err);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(username),
-      password,
+    // Look up the account's *current* login email via a security-definer RPC
+    // rather than assuming the synthetic pattern still applies — once a user
+    // confirms a real contact email (see updateContactEmail below), Supabase
+    // switches auth.users.email to that address, and login must follow it.
+    const { data: email, error: lookupError } = await supabase.rpc("get_login_email", {
+      p_username: username.trim().toLowerCase(),
     });
+    if (lookupError || !email) throw new Error("No account found for that username.");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);
   }
 
   async function logout() {
     await supabase.auth.signOut();
     location.reload();
+  }
+
+  // ---------- Real contact email (optional, confirmed via Supabase's own link) ----------
+  // Login always stays username-based (see signIn above) — this just lets a
+  // user attach and verify a real email on their account, e.g. for contact
+  // purposes. Supabase emails a confirmation link to the new address and only
+  // swaps it in once clicked, so login keeps working throughout.
+  async function getEmailStatus() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    return {
+      current: user.email && user.email.endsWith(`@${EMAIL_DOMAIN}`) ? null : user.email,
+      pending: user.new_email || null,
+    };
+  }
+
+  async function updateContactEmail(email) {
+    const { error } = await supabase.auth.updateUser(
+      { email },
+      { emailRedirectTo: location.origin + location.pathname.replace(/[^/]*$/, "personal.html") }
+    );
+    if (error) throw new Error(error.message);
   }
 
   // ---------- Saved jobs (server-stored via Supabase, per signed-in user) ----------
@@ -105,11 +132,72 @@
     if (error) throw error;
   }
 
+  // ---------- Private per-user search runs ----------
+  // Each "Run New Search" creates its own row here first; the GitHub Actions
+  // workflow writes that run's results into search_results (via a service
+  // role key, bypassing RLS) instead of the one shared docs/data/jobs.json —
+  // so one user's search never overwrites or leaks into another's results.
+  async function createSearchRun({ searchTerm, location: loc, params }) {
+    const { data, error } = await supabase
+      .from("search_runs")
+      .insert({ search_term: searchTerm, location: loc, params })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function getSearchRun(runId) {
+    const { data, error } = await supabase.from("search_runs").select("*").eq("id", runId).single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function listSearchRuns() {
+    const { data, error } = await supabase
+      .from("search_runs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getSearchResults(runId) {
+    const { data, error } = await supabase
+      .from("search_results")
+      .select("id:job_id, title, company, location, job_url, job_type, site, date_posted, description")
+      .eq("run_id", runId);
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Polls a run's status until it leaves "pending"/"running", calling
+  // onUpdate(run) after every check. Returns a function to stop polling early.
+  function pollSearchRun(runId, onUpdate, intervalMs) {
+    let stopped = false;
+    (async function tick() {
+      while (!stopped) {
+        let run;
+        try {
+          run = await getSearchRun(runId);
+        } catch (err) {
+          onUpdate(null, err);
+          return;
+        }
+        onUpdate(run, null);
+        if (run.status === "completed" || run.status === "failed") return;
+        await new Promise((r) => setTimeout(r, intervalMs || 5000));
+      }
+    })();
+    return () => { stopped = true; };
+  }
+
   // ---------- Trigger a new scrape ----------
-  // Calls a Supabase Edge Function that holds one bot token server-side, so
-  // signed-in users never need a GitHub token of their own.
-  async function dispatchScrape(inputs) {
-    const { data, error } = await supabase.functions.invoke("trigger-scrape", { body: { inputs } });
+  // Calls a Supabase Edge Function that holds one GitHub bot token
+  // server-side, so signed-in users never need a token of their own.
+  async function dispatchScrape(inputs, runId) {
+    const { data, error } = await supabase.functions.invoke("trigger-scrape", { body: { inputs, run_id: runId } });
     if (error) throw new Error(error.message || "Failed to trigger scrape");
     if (data && data.error) throw new Error(data.error);
   }
@@ -381,7 +469,9 @@
 
   global.JobSpyApp = {
     supabase, getUser, signUp, signIn, logout, openAuthModal,
+    getEmailStatus, updateContactEmail,
     getSavedJobs, saveJobs, removeSavedJob,
+    createSearchRun, getSearchRun, listSearchRuns, getSearchResults, pollSearchRun,
     dispatchScrape, actionsRunUrl,
     parseBooleanQuery, buildPredicate, toScraperTerm,
     exportJobsToPdf, renderNav, escapeHtml,
