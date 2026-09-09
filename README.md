@@ -282,6 +282,8 @@ plus a scheduled scraper that keeps its data fresh.
   descriptions.
 - **`docs/contact.html`** — contact email and a placeholder legal-disclaimer section (content
   intentionally not filled in yet).
+- **`docs/reset-password.html`** — where a "Forgot password?" email link lands; lets a user set
+  a new password once Supabase's own recovery link has verified them.
 - **`index.html`** at the repo root just redirects into `docs/index.html`, in case GitHub Pages
   is configured to build from the branch root instead of `/docs`.
 

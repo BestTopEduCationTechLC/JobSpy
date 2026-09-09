@@ -56,9 +56,10 @@ card) go through its own confirmation link rather than switching instantly.
 Dashboard → **Authentication → URL Configuration**:
 - **Site URL**: your GitHub Pages URL (e.g.
   `https://besttopeducationtechlc.github.io/JobSpy/docs/index.html`)
-- **Redirect URLs**: add that URL and `.../docs/personal.html` — the sign-up
-  confirmation link redirects to `index.html`, and a later email-change
-  confirmation redirects to `personal.html`.
+- **Redirect URLs**: add that URL, `.../docs/personal.html`, and
+  `.../docs/reset-password.html` — the sign-up confirmation link redirects to
+  `index.html`, an email-change confirmation redirects to `personal.html`,
+  and a "forgot password" link redirects to `reset-password.html`.
 
 ## 5. Create the bot token and deploy the Edge Function
 
@@ -134,6 +135,12 @@ commit and push — GitHub Pages picks it up on the next build.
    different address and confirm the link that arrives there; `emailStatus`
    should update to the new address. Sign out and back in with your
    username/password to confirm login still works after the change.
+7. Sign out, click **sign in**, then **Forgot password?**, enter your
+   username, and submit. Open the reset email and click its link — it
+   should land on `reset-password.html` and show a "New password" form
+   (if it instead shows "This page only works when opened from a password
+   reset email link...", the link expired or Redirect URLs isn't set up
+   right). Set a new password, then sign in with it to confirm it took.
 
 ## Notes
 

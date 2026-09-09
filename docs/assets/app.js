@@ -90,6 +90,35 @@
     location.reload();
   }
 
+  // ---------- Forgot password ----------
+  // Resolves username -> current email (same RPC as sign-in) and asks
+  // Supabase to email a recovery link. That link lands on reset-password.html
+  // with a recovery token in the URL, which Supabase's client picks up
+  // automatically and turns into a temporary session (see reset-password.html)
+  // used only to call updatePassword() below.
+  async function requestPasswordReset(username) {
+    const err = validateUsername(username);
+    if (err) throw new Error(err);
+    // Deliberately doesn't distinguish "no such username" from "email sent" —
+    // revealing which usernames exist is exactly what a forgot-password form
+    // shouldn't do. Callers should always show one generic message.
+    const { data: email, error: lookupError } = await supabase.rpc("get_login_email", {
+      p_username: username.trim().toLowerCase(),
+    });
+    if (lookupError || !email) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: location.origin + location.pathname.replace(/[^/]*$/, "reset-password.html"),
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async function updatePassword(newPassword) {
+    const err = validatePassword(newPassword);
+    if (err) throw new Error(err);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(error.message);
+  }
+
   // ---------- Changing the account's email later ----------
   // Uses Supabase's own secure-email-change flow: it sends a confirmation
   // link to the new address and only swaps it in once clicked, so login (via
@@ -421,10 +450,13 @@
           <label for="authEmail">Email address</label>
           <input type="text" id="authEmail" autocomplete="email" placeholder="you@example.com" />
         </div>
-        <div class="field">
+        <div class="field" id="authPasswordField">
           <label for="authPassword">Password</label>
           <input type="password" id="authPassword" autocomplete="current-password" />
         </div>
+        <p class="hint" id="authModalForgot" style="margin: 0 0 14px;">
+          <button type="button" id="authForgotBtn">Forgot password?</button>
+        </p>
         <p class="hint" id="authModalInfo" style="display:none;"></p>
         <p class="hint" id="authModalError" style="display:none; color: var(--danger);"></p>
         <div class="actions">
@@ -442,6 +474,9 @@
     const errorEl = document.getElementById("authModalError");
     const infoEl = document.getElementById("authModalInfo");
     const emailField = document.getElementById("authEmailField");
+    const passwordField = document.getElementById("authPasswordField");
+    const forgotEl = document.getElementById("authModalForgot");
+    const forgotBtn = document.getElementById("authForgotBtn");
     const usernameEl = document.getElementById("authUsername");
     const emailEl = document.getElementById("authEmail");
     const passwordEl = document.getElementById("authPassword");
@@ -449,17 +484,22 @@
     function close() { backdrop.remove(); }
 
     function applyMode() {
-      title.textContent = mode === "signin" ? "Sign in" : "Create account";
-      submitBtn.textContent = mode === "signin" ? "Sign in" : "Create account";
-      toggleBtn.textContent = mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in";
+      title.textContent = { signin: "Sign in", signup: "Create account", reset: "Reset password" }[mode];
+      submitBtn.textContent = { signin: "Sign in", signup: "Create account", reset: "Send reset link" }[mode];
+      toggleBtn.textContent = mode === "signup" ? "Have an account? Sign in" : "Need an account? Sign up";
+      toggleBtn.style.display = mode === "reset" ? "none" : "inline-block";
       emailField.style.display = mode === "signup" ? "block" : "none";
+      passwordField.style.display = mode === "reset" ? "none" : "block";
+      forgotEl.style.display = mode === "signin" ? "block" : "none";
       errorEl.style.display = "none";
       infoEl.style.display = "none";
     }
 
-    toggleBtn.addEventListener("click", () => { mode = mode === "signin" ? "signup" : "signin"; applyMode(); });
+    toggleBtn.addEventListener("click", () => { mode = mode === "signup" ? "signin" : "signup"; applyMode(); });
     document.getElementById("authModalCancel").addEventListener("click", close);
     backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+
+    forgotBtn.addEventListener("click", () => { mode = "reset"; applyMode(); });
 
     submitBtn.addEventListener("click", async () => {
       errorEl.style.display = "none";
@@ -469,7 +509,7 @@
         if (mode === "signin") {
           await signIn(usernameEl.value, passwordEl.value);
           location.reload();
-        } else {
+        } else if (mode === "signup") {
           const { needsConfirmation } = await signUp(usernameEl.value, emailEl.value, passwordEl.value);
           if (needsConfirmation) {
             const confirmMessage = `Account created! Check ${emailEl.value.trim()} for a confirmation link, then sign in.`;
@@ -481,6 +521,14 @@
           } else {
             location.reload();
           }
+        } else {
+          await requestPasswordReset(usernameEl.value);
+          const resetMessage = "If that username has a confirmed account, a password reset link has been emailed to it.";
+          mode = "signin";
+          applyMode();
+          infoEl.textContent = resetMessage;
+          infoEl.style.display = "block";
+          submitBtn.disabled = false;
         }
       } catch (err) {
         errorEl.textContent = err.message;
@@ -501,7 +549,7 @@
 
   global.JobSpyApp = {
     supabase, getUser, signUp, signIn, logout, openAuthModal,
-    getEmailStatus, updateContactEmail,
+    getEmailStatus, updateContactEmail, requestPasswordReset, updatePassword,
     getSavedJobs, saveJobs, removeSavedJob,
     createSearchRun, getSearchRun, listSearchRuns, getSearchResults, pollSearchRun,
     dispatchScrape, actionsRunUrl,
