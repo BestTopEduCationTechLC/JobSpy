@@ -8,8 +8,8 @@
   // Fill these in from your Supabase project (Project Settings -> API).
   // The anon key is safe to expose in a public frontend — Row Level Security
   // on the saved_jobs table is what actually restricts access per user.
-  const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
-  const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+  const SUPABASE_URL = "https://inniqenqdcmqqmvvlrzb.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_aS8f54NDRKx_0qEhEeGGfA_Ey9NSFse";
 
   const supabase = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
