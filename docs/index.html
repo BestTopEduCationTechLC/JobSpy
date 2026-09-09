@@ -83,7 +83,6 @@
       <button type="button" class="primary" id="runSearchBtn">Run New Search (starts a fresh scrape)</button>
       <span class="spacer"></span>
       <button type="button" id="backToAllBtn" style="display:none;">&larr; Back to all jobs</button>
-      <a class="btn" href="#" id="actionsLink" target="_blank" rel="noopener">Open Actions tab</a>
     </div>
     <p class="hint" id="authHint" style="display:none;">Sign in (top right) to run a new search or save jobs.</p>
     <p class="hint" id="runStatus" style="display:none;"></p>
@@ -112,7 +111,6 @@
 (async function () {
   const App = window.JobSpyApp;
   const currentUser = await App.renderNav("index");
-  document.getElementById("actionsLink").href = App.actionsRunUrl();
   if (!currentUser) document.getElementById("authHint").style.display = "block";
 
   // state.jobs is whatever's currently on screen — either the shared,

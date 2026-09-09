@@ -239,10 +239,6 @@
     if (data && data.error) throw new Error(data.error);
   }
 
-  function actionsRunUrl() {
-    return "https://github.com/BestTopEduCationTechLC/JobSpy/actions/workflows/scrape-jobs.yml";
-  }
-
   // ---------- Boolean search parsing (AND / OR / NOT) ----------
   // The search bar accepts AND / OR / NOT (plus quoted phrases and parentheses).
   // This is resolved HERE, client-side, before anything reaches the scraper:
@@ -552,7 +548,7 @@
     getEmailStatus, updateContactEmail, requestPasswordReset, updatePassword,
     getSavedJobs, saveJobs, removeSavedJob,
     createSearchRun, getSearchRun, listSearchRuns, getSearchResults, pollSearchRun,
-    dispatchScrape, actionsRunUrl,
+    dispatchScrape,
     parseBooleanQuery, buildPredicate, toScraperTerm,
     exportJobsToPdf, renderNav, escapeHtml,
   };
