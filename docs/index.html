@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>JobSpy Search</title>
+<title>Besttop Career Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Doppio+One&display=swap" rel="stylesheet" />
@@ -13,17 +13,15 @@
   <nav class="topnav" id="topnav"></nav>
 
   <div class="wrap">
-    <h1>JobSpy Search<span class="count-badge" id="countBadge">0</span></h1>
+    <h1>Job Search Engine <span class="count-badge" id="countBadge">0</span></h1>
     <p class="sub" id="metaLine">Loading job data&hellip;</p>
 
     <div class="field" style="margin-bottom: 6px;">
-      <label for="searchInput">Search (supports AND, OR, NOT, "exact phrases", and (grouping))</label>
+      <label for="searchInput">Search [supports AND, OR, NOT, "exact phrases", and (grouping)]</label>
       <input type="text" id="searchInput" placeholder='e.g. "data analyst" AND (python OR sql) NOT intern' autofocus />
     </div>
     <p class="hint">
-      This box filters the jobs already scraped below. Use the same box's text when you click
-      <strong>Run New Search</strong> — your AND/OR/NOT is translated into JobSpy/Indeed's own
-      query syntax (NOT&nbsp;word&nbsp;&rarr;&nbsp;-word, OR kept as-is) before it's sent to the scraper.
+      Please enter your request in this search bar&#8593; with the appropiate syntax.
     </p>
 
     <details class="advanced">
@@ -73,14 +71,14 @@
         <label class="checkline"><input type="checkbox" id="easyApplyInput" /> Easy-apply only</label>
       </div>
       <p class="hint" style="margin-top: 0;">
-        Note (per JobSpy/Indeed's own limits): Indeed and LinkedIn each honor only one of
+        Note (Indeed's own limits): Indeed and LinkedIn each honor only one of
         "posted within" / "job type &amp; remote" / "easy-apply" at a time &mdash; whichever you set,
         the others are ignored by those sites for this run.
       </p>
     </details>
 
     <div class="toolbar">
-      <button type="button" class="primary" id="runSearchBtn">Run New Search (starts a fresh scrape)</button>
+      <button type="button" class="primary" id="runSearchBtn">Run New Search </button>
       <span class="spacer"></span>
       <button type="button" id="backToAllBtn" style="display:none;">&larr; Back to all jobs</button>
     </div>
@@ -96,12 +94,10 @@
     </div>
 
     <div id="results"></div>
-
     <footer>
-      Data refreshes automatically every week via
-      <a href="../.github/workflows/scrape-jobs.yml" target="_blank" rel="noopener">GitHub Actions</a>
-      running the JobSpy scraper notebook, or on demand with the button above.
+      <p>This search engine is powered by <a href="https://github.com/speedyapply/JobSpy"> JobSpy by Cullen Watson</a> For our legal disclaimer of our data policy, <a herf="https://besttopeducationtechlc.github.io/JobSpy/contact.html"> Visit this page</a></p>
     </footer>
+
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -257,16 +253,16 @@
       if (state.stopPolling) state.stopPolling();
       state.viewingPrivate = true;
       backToAllBtn.style.display = "inline-block";
-      showRunStatus("Your search is running — this usually takes a few minutes…");
+      showRunStatus("Your Search is running ———— Go get a coffee in the mean time! ╰(*°▽°*)╯");
       resultsEl.innerHTML = "";
 
       state.stopPolling = App.pollSearchRun(run.id, async (updatedRun, pollError) => {
         if (pollError) {
-          showRunStatus(`Could not check search status: ${pollError.message}`);
+          showRunStatus(`Search status could not be found (•_•): ${pollError.message}`);
           return;
         }
         if (updatedRun.status === "failed") {
-          showRunStatus(`Search failed: ${updatedRun.error || "unknown error"}`);
+          showRunStatus(`Search failed ( ˘︹˘ ): ${updatedRun.error || "unknown error (>ლ)"}`);
           return;
         }
         if (updatedRun.status === "completed") {
@@ -274,7 +270,7 @@
           try {
             state.jobs = await App.getSearchResults(run.id);
           } catch (err) {
-            showRunStatus(`Could not load results: ${err.message}`);
+            showRunStatus(`Could not load results ≡(▔﹏▔)≡ : ${err.message}`);
             return;
           }
           metaLine.textContent = `Your private results for "${updatedRun.search_term || ""}" in ${updatedRun.location || ""} — ${state.jobs.length} job(s)`;
@@ -283,10 +279,10 @@
       }, 8000);
     } catch (err) {
       console.error(err);
-      alert(`Could not start the scrape: ${err.message}`);
+      alert(`Could not start the scrape (￣ i ￣;) : ${err.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = "Run New Search (starts a fresh scrape)";
+      btn.textContent = "Run New Search";
     }
   });
 
@@ -305,7 +301,7 @@
     })
     .catch((err) => {
       metaLine.textContent = "Could not load job data.";
-      resultsEl.innerHTML = '<div class="empty">No data available yet. Run the scraper workflow first.</div>';
+      resultsEl.innerHTML = '<div class="empty"> No data available yet. Run the scraper workflow first.</div>';
       console.error(err);
     });
 })();
