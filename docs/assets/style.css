@@ -47,29 +47,7 @@ a { color: var(--accent); }
   gap: 18px;
   flex-wrap: wrap;
 }
-.topnav .brand {
-  display: flex;
-  flex-direction: column;
-  line-height: 1;
-  margin-right: auto;
-  text-decoration: none;
-}
-.topnav .brand .brand-word {
-  font-weight: 800;
-  font-size: 1.15rem;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
-.topnav .brand .brand-word .brand-best { color: var(--text); }
-.topnav .brand .brand-word .brand-top { color: var(--accent); }
-.topnav .brand .brand-tagline {
-  font-size: 0.56rem;
-  font-weight: 600;
-  letter-spacing: 2.2px;
-  color: var(--muted);
-  margin-top: 3px;
-  white-space: nowrap;
-}
+.topnav .brand { font-weight: 700; margin-right: auto; }
 .topnav a.navlink {
   color: var(--muted);
   text-decoration: none;
