@@ -13,17 +13,15 @@
 
   const supabase = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ---------- Auth (username + password, stored in Supabase) ----------
-  // Supabase's built-in auth is email-based, so a username is mapped to a
-  // synthetic, never-emailed address (username@jobspy.local) — the user only
-  // ever sees/types a username. The real display name is also stored in
-  // user_metadata.username so it's available without decoding the email.
+  // ---------- Auth (username + password; a real, confirmed email is required) ----------
+  // Sign-up collects a real email address and Supabase sends a confirmation
+  // link to it — the account cannot log in until that link is clicked
+  // (Supabase's standard "Confirm email" flow, left ON). The chosen username
+  // is stored in user_metadata.username and is what the user actually types
+  // to log in; get_login_email() resolves username -> current email so sign-in
+  // never has to guess or reconstruct an address.
   const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
-  const EMAIL_DOMAIN = "jobspy.local";
-
-  function usernameToEmail(username) {
-    return `${username.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
-  }
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   async function getUser() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -35,43 +33,56 @@
     return {
       id: session.user.id,
       username: meta.username || (session.user.email || "").split("@")[0] || "User",
+      email: session.user.email,
     };
   }
 
-  function validateCredentials(username, password) {
+  function validateUsername(username) {
     if (!USERNAME_RE.test(username)) {
       return "Username must be 3-32 characters: letters, numbers, . _ or - only.";
     }
+    return null;
+  }
+
+  function validatePassword(password) {
     if (!password || password.length < 6) {
       return "Password must be at least 6 characters.";
     }
     return null;
   }
 
-  async function signUp(username, password) {
-    const err = validateCredentials(username, password);
+  async function signUp(username, email, password) {
+    const err = validateUsername(username) || validatePassword(password);
     if (err) throw new Error(err);
-    const { error } = await supabase.auth.signUp({
-      email: usernameToEmail(username),
+    if (!EMAIL_RE.test(email)) throw new Error("Enter a valid email address.");
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
       password,
-      options: { data: { username: username.trim().toLowerCase() } },
+      options: {
+        data: { username: username.trim().toLowerCase() },
+        emailRedirectTo: location.origin + location.pathname.replace(/[^/]*$/, "index.html"),
+      },
     });
     if (error) throw new Error(error.message);
+    // With "Confirm email" on, signUp() does not return an active session —
+    // the account exists but can't sign in until the emailed link is clicked.
+    return { needsConfirmation: !data.session };
   }
 
   async function signIn(username, password) {
-    const err = validateCredentials(username, password);
+    const err = validateUsername(username) || validatePassword(password);
     if (err) throw new Error(err);
-    // Look up the account's *current* login email via a security-definer RPC
-    // rather than assuming the synthetic pattern still applies — once a user
-    // confirms a real contact email (see updateContactEmail below), Supabase
-    // switches auth.users.email to that address, and login must follow it.
     const { data: email, error: lookupError } = await supabase.rpc("get_login_email", {
       p_username: username.trim().toLowerCase(),
     });
     if (lookupError || !email) throw new Error("No account found for that username.");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (/confirm/i.test(error.message)) {
+        throw new Error("Please confirm your email first — check the inbox you signed up with.");
+      }
+      throw new Error(error.message);
+    }
   }
 
   async function logout() {
@@ -79,21 +90,18 @@
     location.reload();
   }
 
-  // ---------- Real contact email (optional, confirmed via Supabase's own link) ----------
-  // Login always stays username-based (see signIn above) — this just lets a
-  // user attach and verify a real email on their account, e.g. for contact
-  // purposes. Supabase emails a confirmation link to the new address and only
-  // swaps it in once clicked, so login keeps working throughout.
+  // ---------- Changing the account's email later ----------
+  // Uses Supabase's own secure-email-change flow: it sends a confirmation
+  // link to the new address and only swaps it in once clicked, so login (via
+  // get_login_email above) keeps resolving to whichever email is current.
   async function getEmailStatus() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-    return {
-      current: user.email && user.email.endsWith(`@${EMAIL_DOMAIN}`) ? null : user.email,
-      pending: user.new_email || null,
-    };
+    return { current: user.email || null, pending: user.new_email || null };
   }
 
   async function updateContactEmail(email) {
+    if (!EMAIL_RE.test(email)) throw new Error("Enter a valid email address.");
     const { error } = await supabase.auth.updateUser(
       { email },
       { emailRedirectTo: location.origin + location.pathname.replace(/[^/]*$/, "personal.html") }
@@ -409,10 +417,15 @@
           <label for="authUsername">Username</label>
           <input type="text" id="authUsername" autocomplete="username" />
         </div>
+        <div class="field" id="authEmailField" style="display:none;">
+          <label for="authEmail">Email address</label>
+          <input type="text" id="authEmail" autocomplete="email" placeholder="you@example.com" />
+        </div>
         <div class="field">
           <label for="authPassword">Password</label>
           <input type="password" id="authPassword" autocomplete="current-password" />
         </div>
+        <p class="hint" id="authModalInfo" style="display:none;"></p>
         <p class="hint" id="authModalError" style="display:none; color: var(--danger);"></p>
         <div class="actions">
           <button type="button" id="authModalToggle">Need an account? Sign up</button>
@@ -427,7 +440,10 @@
     const toggleBtn = document.getElementById("authModalToggle");
     const submitBtn = document.getElementById("authModalSubmit");
     const errorEl = document.getElementById("authModalError");
+    const infoEl = document.getElementById("authModalInfo");
+    const emailField = document.getElementById("authEmailField");
     const usernameEl = document.getElementById("authUsername");
+    const emailEl = document.getElementById("authEmail");
     const passwordEl = document.getElementById("authPassword");
 
     function close() { backdrop.remove(); }
@@ -436,7 +452,9 @@
       title.textContent = mode === "signin" ? "Sign in" : "Create account";
       submitBtn.textContent = mode === "signin" ? "Sign in" : "Create account";
       toggleBtn.textContent = mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in";
+      emailField.style.display = mode === "signup" ? "block" : "none";
       errorEl.style.display = "none";
+      infoEl.style.display = "none";
     }
 
     toggleBtn.addEventListener("click", () => { mode = mode === "signin" ? "signup" : "signin"; applyMode(); });
@@ -445,11 +463,25 @@
 
     submitBtn.addEventListener("click", async () => {
       errorEl.style.display = "none";
+      infoEl.style.display = "none";
       submitBtn.disabled = true;
       try {
-        if (mode === "signin") await signIn(usernameEl.value, passwordEl.value);
-        else await signUp(usernameEl.value, passwordEl.value);
-        location.reload();
+        if (mode === "signin") {
+          await signIn(usernameEl.value, passwordEl.value);
+          location.reload();
+        } else {
+          const { needsConfirmation } = await signUp(usernameEl.value, emailEl.value, passwordEl.value);
+          if (needsConfirmation) {
+            const confirmMessage = `Account created! Check ${emailEl.value.trim()} for a confirmation link, then sign in.`;
+            mode = "signin";
+            applyMode(); // resets infoEl.style.display, so set the message after
+            infoEl.textContent = confirmMessage;
+            infoEl.style.display = "block";
+            submitBtn.disabled = false;
+          } else {
+            location.reload();
+          }
+        }
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = "block";

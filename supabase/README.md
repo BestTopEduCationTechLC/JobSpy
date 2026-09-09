@@ -2,8 +2,9 @@
 
 Supabase provides everything the static site needs, with no separate server to
 host:
-- **Auth** — username + password, stored by Supabase (no GitHub login involved),
-  with an optional real contact email a user can add and confirm afterward
+- **Auth** — username + password, but a real email is required at sign-up and
+  must be confirmed (Supabase's standard confirmation-link flow) before the
+  account can log in; no GitHub login involved
 - **Postgres + Row Level Security** — `saved_jobs` (each user's saved
   listings) and `search_runs`/`search_results` (each user's own private
   search history and results) — one user can never see another's rows
@@ -36,29 +37,28 @@ Dashboard → **SQL Editor → New query**. Paste the contents of
   that run's own results, both locked to the owning user; only a service-role
   key (never exposed to the browser) can write results or flip a run's status
 - `get_login_email(username)` — a small helper function so username-based
-  login keeps working even after a user later confirms a real email (step 6)
+  login can resolve to whatever the account's current confirmed email is,
+  including after it's changed later (step 5's "Account" card)
 
-## 3. Turn off *sign-up* email confirmation
+## 3. Confirm email confirmation is ON
 
-Login here is username + password, not email — under the hood each new
-account is created with a synthetic address like `alice@jobspy.local` (see
-`usernameToEmail()` in `docs/assets/app.js`) that nobody can actually receive
-mail at. So the confirmation step for *new sign-ups* needs to be disabled, or
-nobody could ever finish signing up:
+Sign-up now collects a real email address, and the account cannot log in
+until that email is confirmed — this is Supabase's standard behavior and
+should already be the default, but double check:
 
-Dashboard → **Authentication → Providers → Email** → turn **off** "Confirm
-email". (The Email provider itself should already be enabled by default —
-you don't need to touch anything else on this page.) Leave **"Secure email
-change"** at its default (on) — that one's what makes step 6's real-email
-confirmation actually work.
+Dashboard → **Authentication → Providers → Email** → make sure "Confirm
+email" is **on**. Leave **"Secure email change"** at its default (on) too —
+that's what makes changing the email later (from `personal.html`'s Account
+card) go through its own confirmation link rather than switching instantly.
 
 ## 4. Set the Site URL / Redirect URLs
 
 Dashboard → **Authentication → URL Configuration**:
 - **Site URL**: your GitHub Pages URL (e.g.
   `https://besttopeducationtechlc.github.io/JobSpy/docs/index.html`)
-- **Redirect URLs**: add that URL and `.../docs/personal.html` — the contact
-  email confirmation link (step 6) redirects back to `personal.html`.
+- **Redirect URLs**: add that URL and `.../docs/personal.html` — the sign-up
+  confirmation link redirects to `index.html`, and a later email-change
+  confirmation redirects to `personal.html`.
 
 ## 5. Create the bot token and deploy the Edge Function
 
@@ -118,29 +118,35 @@ commit and push — GitHub Pages picks it up on the next build.
 ## 8. Test it
 
 1. Visit your GitHub Pages site. Nav should show "Not signed in — sign in".
-2. Click it, choose "Need an account? Sign up", pick a username (3-32 chars,
-   letters/numbers/`.`/`_`/`-`) and a password (6+ chars). You should land
-   back on the site signed in immediately (no email confirmation).
-3. Select jobs, click **Save selected**, then check `personal.html` — or the
+2. Click it, choose "Need an account? Sign up", and fill in a username
+   (3-32 chars, letters/numbers/`.`/`_`/`-`), a real email you can check, and
+   a password (6+ chars). You should see "Account created! Check ... for a
+   confirmation link, then sign in" — the account cannot log in yet.
+3. Open that email and click the confirmation link — it redirects back to
+   `index.html`. Now go sign in with the username/password from step 2; it
+   should succeed.
+4. Select jobs, click **Save selected**, then check `personal.html` — or the
    `saved_jobs` table in the Supabase Table Editor — to confirm it persisted.
-4. Click **Run New Search**. The page should show "Your search is running…"
+5. Click **Run New Search**. The page should show "Your search is running…"
    and, once the Actions run finishes, switch to showing that private result
    set — check `personal.html`'s "Your search history" to see it listed too.
-5. On `personal.html`, add a real email under **Account** and confirm the
-   link that arrives in that inbox; `emailStatus` should update to "Confirmed
-   email: ...". Sign out and back in with your username/password to confirm
-   login still works after the email change.
+6. On `personal.html`, try changing the email under **Account** to a
+   different address and confirm the link that arrives there; `emailStatus`
+   should update to the new address. Sign out and back in with your
+   username/password to confirm login still works after the change.
 
 ## Notes
 
-- Usernames are case-insensitive (stored lowercased) since sign-up maps them
-  into an email address, which Supabase treats case-insensitively.
+- Usernames are case-insensitive (stored lowercased); the email tied to the
+  account is whatever real address the user signed up (or later changed) to.
 - `ALLOWED_USERNAMES` is the only access control on the scrape trigger —
-  anyone with an account (if left unset) can click "Run New Search", which
-  consumes your bot token's Actions minutes. Since anyone can currently sign
-  up for an account, consider setting this if that matters to you.
-- Adding a contact email is entirely optional for users — login never
-  depends on it, only on username + password.
+  anyone with a confirmed account (if left unset) can click "Run New
+  Search", which consumes your bot token's Actions minutes. Since anyone can
+  sign up (with any real email they can access), consider setting this if
+  that matters to you.
+- Because sign-up requires confirming a real email, an account can't be
+  fully created without access to that inbox — that's the actual gate on
+  who can use the site, not the username/password by themselves.
 - To see Edge Function logs: `supabase functions logs trigger-scrape`, or the
   dashboard's **Edge Functions** section. For the workflow's own logs
   (including the Supabase upload step), check the run in the repo's

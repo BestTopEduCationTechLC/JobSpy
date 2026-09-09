@@ -276,9 +276,10 @@ plus a scheduled scraper that keeps its data fresh.
   straight to PDF.
 - **`docs/personal.html`** — "*{your username} personal interface test*": jobs you saved from
   the search page, your account's search history (each past run's own private results,
-  re-viewable anytime), and an "Account" section to optionally add and confirm a real contact
-  email. Supports removing jobs and exporting a selection (or everything) to PDF, with or
-  without full descriptions.
+  re-viewable anytime), and an "Account" section showing the confirmed email on file (required
+  at sign-up) with the option to change it, which sends a new confirmation link. Supports
+  removing jobs and exporting a selection (or everything) to PDF, with or without full
+  descriptions.
 - **`docs/contact.html`** — contact email and a placeholder legal-disclaimer section (content
   intentionally not filled in yet).
 - **`index.html`** at the repo root just redirects into `docs/index.html`, in case GitHub Pages

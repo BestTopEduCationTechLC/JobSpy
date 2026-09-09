@@ -97,12 +97,11 @@ create policy "Users can view results of their own search runs"
 
 -- ---------------------------------------------------------------------------
 -- Lets the frontend resolve "username" -> the account's current login email
--- at sign-in time, without exposing auth.users or requiring login to keep
--- using a synthetic email forever. If a user later confirms a real contact
--- email (see docs/assets/app.js updateContactEmail()), Supabase updates
--- auth.users.email to that real address once confirmed, and this function
--- transparently starts returning it — login-by-username keeps working either
--- way since it always looks up whatever the current email is.
+-- at sign-in time, without exposing auth.users directly. Every account has a
+-- real, Supabase-confirmed email from sign-up (see docs/assets/app.js
+-- signUp()); if the user later changes it via updateContactEmail(), this
+-- function transparently starts returning the new one, so login-by-username
+-- keeps working across an email change.
 
 create or replace function public.get_login_email(p_username text)
 returns text

@@ -17,8 +17,9 @@
     <div class="card" id="accountCard" style="display:none;">
       <h2 style="margin-top:0;">Account</h2>
       <p class="hint" style="margin-top:0;">
-        Login stays username + password. Adding a real email here is optional — it's just a
-        contact address for your account, confirmed via a link Supabase emails you.
+        You sign in with your username + password. This is the confirmed email on file for
+        your account — change it below if needed; Supabase will email a confirmation link to
+        the new address before it takes effect.
       </p>
       <p id="emailStatus" class="hint" style="margin:0 0 10px;"></p>
       <div class="field-row" style="margin-bottom: 10px;">
@@ -27,7 +28,7 @@
           <input type="text" id="contactEmailInput" placeholder="you@example.com" />
         </div>
       </div>
-      <button type="button" id="saveEmailBtn">Save &amp; send confirmation link</button>
+      <button type="button" id="saveEmailBtn">Update &amp; send confirmation link</button>
       <p class="hint" id="emailSaveMsg" style="display:none;"></p>
     </div>
 
@@ -78,7 +79,7 @@
   document.getElementById("accountCard").style.display = "block";
   document.getElementById("historyCard").style.display = "block";
 
-  // ---- Account: optional confirmed contact email ----
+  // ---- Account: confirmed email on file (required at signup, changeable here) ----
   const emailStatusEl = document.getElementById("emailStatus");
   const contactEmailInput = document.getElementById("contactEmailInput");
   const saveEmailBtn = document.getElementById("saveEmailBtn");
