@@ -271,16 +271,19 @@ plus a scheduled scraper that keeps its data fresh.
   scraper parameters" panel exposing JobSpy's full parameter set (sites, location, country,
   job type, remote-only, easy-apply, distance, results wanted, hours old). Jobs can be selected
   via checkbox, saved to your personal page, or exported straight to PDF.
-- **`docs/personal.html`** — "*{your name} personal interface test*": the jobs you saved from
-  the search page, kept in `localStorage` in your browser. Supports removing jobs and exporting
-  a selection (or everything) to PDF, with or without full descriptions.
+- **`docs/personal.html`** — "*{your GitHub username} personal interface test*": the jobs you
+  saved from the search page, stored server-side against your account (works across devices).
+  Supports removing jobs and exporting a selection (or everything) to PDF, with or without full
+  descriptions.
 - **`docs/contact.html`** — contact email and a placeholder legal-disclaimer section (content
   intentionally not filled in yet).
 - **`index.html`** at the repo root just redirects into `docs/index.html`, in case GitHub Pages
   is configured to build from the branch root instead of `/docs`.
 
-There's no backend here — "signing in" is just a display-name prompt stored in `localStorage`
-(no password, no server), used only to personalize the saved-jobs page title.
+Login, saved jobs, and the scrape-trigger button all depend on the small backend in
+[`server/`](server/README.md) — see that README for how to deploy it. Until `BACKEND_URL` in
+`docs/assets/app.js` is set to a deployed backend, the site still works for browsing/searching
+the already-scraped data, but signing in, saving jobs, and "Run New Search" won't function.
 
 ### Boolean search vs. the scraper's own query syntax
 
@@ -296,12 +299,10 @@ scraper** — never passed into JobSpy directly:
 
 ### Triggering a new scrape from the page
 
-GitHub Pages is static hosting — it can't run server code or hold a secret safely. The **Run
-New Search** button works by calling GitHub's REST API for `workflow_dispatch` directly from
-your browser, using a Personal Access Token (scope: `workflow`) that you paste in once via the
-**GitHub token…** button. The token is stored only in your browser's `localStorage` and sent
-only to `api.github.com` — this project has nowhere else to keep it. Create a token at
-https://github.com/settings/tokens.
+GitHub Pages is static hosting — it can't run server code or hold a secret safely, so the **Run
+New Search** button and saved-jobs storage go through the backend in [`server/`](server/README.md)
+instead: you sign in with GitHub, and the backend (which holds one bot token server-side) calls
+`workflow_dispatch` on your behalf. No individual user needs their own token.
 
 `.github/workflows/scrape-jobs.yml` runs every Monday at 06:00 UTC regardless, and also accepts
 all of the above as `workflow_dispatch` inputs if you'd rather trigger it from the Actions tab

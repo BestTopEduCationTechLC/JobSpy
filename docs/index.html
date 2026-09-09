@@ -78,10 +78,10 @@
 
     <div class="toolbar">
       <button type="button" class="primary" id="runSearchBtn">Run New Search (starts a fresh scrape)</button>
-      <button type="button" id="tokenBtn">GitHub token&hellip;</button>
       <span class="spacer"></span>
       <a class="btn" href="#" id="actionsLink" target="_blank" rel="noopener">Open Actions tab</a>
     </div>
+    <p class="hint" id="authHint" style="display:none;">Sign in with GitHub (top right) to run a new search or save jobs.</p>
 
     <div class="toolbar">
       <label class="checkline"><input type="checkbox" id="selectAll" /> Select all shown</label>
@@ -103,11 +103,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/app.js"></script>
 <script>
-(function () {
+(async function () {
   const App = window.JobSpyApp;
-  App.ensureUsername();
-  App.renderNav("index");
+  await App.renderNav("index");
   document.getElementById("actionsLink").href = App.actionsRunUrl();
+  if (!App.getUser()) document.getElementById("authHint").style.display = "block";
 
   const state = { jobs: [], selected: new Set() };
 
@@ -180,9 +180,15 @@
     render();
   });
 
-  saveSelectedBtn.addEventListener("click", () => {
-    App.saveJobs(selectedJobObjects());
-    alert(`Saved ${state.selected.size} job(s) to your personal page.`);
+  saveSelectedBtn.addEventListener("click", async () => {
+    if (!App.getUser()) { location.href = App.loginUrl(); return; }
+    try {
+      const n = state.selected.size;
+      await App.saveJobs(selectedJobObjects());
+      alert(`Saved ${n} job(s) to your personal page.`);
+    } catch (err) {
+      alert(`Could not save: ${err.message}`);
+    }
   });
 
   exportSelectedBtn.addEventListener("click", () => {
@@ -190,18 +196,8 @@
     App.exportJobsToPdf(selectedJobObjects(), { includeDescription });
   });
 
-  document.getElementById("tokenBtn").addEventListener("click", () => {
-    const current = App.getToken();
-    const next = prompt(
-      "GitHub Personal Access Token (scope: 'workflow'). Leave blank and press OK to clear it.",
-      current
-    );
-    if (next === null) return;
-    App.setToken(next.trim());
-    alert(next.trim() ? "Token saved in this browser." : "Token cleared.");
-  });
-
   document.getElementById("runSearchBtn").addEventListener("click", async () => {
+    if (!App.getUser()) { location.href = App.loginUrl(); return; }
     const siteMap = [
       ["siteIndeed", "indeed"], ["siteLinkedin", "linkedin"], ["siteGoogle", "google"],
       ["siteZip", "zip_recruiter"], ["siteGlassdoor", "glassdoor"], ["siteBayt", "bayt"],

@@ -11,7 +11,8 @@
 
   <div class="wrap">
     <h1 id="pageTitle">Personal Interface<span class="count-badge" id="countBadge">0</span></h1>
-    <p class="sub">Jobs you've saved from the search page, kept in this browser only.</p>
+    <p class="sub">Jobs you've saved from the search page, stored on your account.</p>
+    <p class="hint" id="authHint" style="display:none;">Sign in with GitHub (top right) to see your saved jobs.</p>
 
     <div class="toolbar">
       <label class="checkline"><input type="checkbox" id="selectAll" /> Select all</label>
@@ -28,15 +29,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/app.js"></script>
 <script>
-(function () {
+(async function () {
   const App = window.JobSpyApp;
-  const name = App.ensureUsername();
-  App.renderNav("personal");
+  await App.renderNav("personal");
+  const user = App.getUser();
+  const name = user ? user.username : "Guest";
   document.title = `${name} personal interface test`;
   document.getElementById("pageTitle").innerHTML =
     `${App.escapeHtml(name)} personal interface test<span class="count-badge" id="countBadge">0</span>`;
 
-  const state = { selected: new Set() };
+  const state = { jobs: [], selected: new Set() };
   const resultsEl = document.getElementById("results");
   const countBadge = document.getElementById("countBadge");
   const selectAll = document.getElementById("selectAll");
@@ -45,10 +47,14 @@
   const exportAllBtn = document.getElementById("exportAllBtn");
   const removeSelectedBtn = document.getElementById("removeSelectedBtn");
 
-  function jobs() { return App.getSavedJobs(); }
+  if (!user) {
+    document.getElementById("authHint").style.display = "block";
+    resultsEl.innerHTML = `<div class="empty">Sign in with GitHub to view your saved jobs.</div>`;
+    return;
+  }
 
   function render() {
-    const list = jobs();
+    const list = state.jobs;
     countBadge.textContent = list.length;
     exportAllBtn.disabled = list.length === 0;
 
@@ -78,8 +84,9 @@
         });
       });
       resultsEl.querySelectorAll(".remove").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          App.removeSavedJobs([btn.dataset.id]);
+        btn.addEventListener("click", async () => {
+          await App.removeSavedJob(btn.dataset.id);
+          state.jobs = state.jobs.filter((j) => j.id !== btn.dataset.id);
           state.selected.delete(btn.dataset.id);
           render();
         });
@@ -93,19 +100,19 @@
     selectedCount.textContent = `${n} selected`;
     exportSelectedBtn.disabled = n === 0;
     removeSelectedBtn.disabled = n === 0;
-    const ids = jobs().map((j) => j.id);
+    const ids = state.jobs.map((j) => j.id);
     selectAll.checked = ids.length > 0 && ids.every((id) => state.selected.has(id));
   }
 
   selectAll.addEventListener("change", () => {
-    const ids = jobs().map((j) => j.id);
+    const ids = state.jobs.map((j) => j.id);
     if (selectAll.checked) ids.forEach((id) => state.selected.add(id));
     else state.selected.clear();
     render();
   });
 
   function selectedJobObjects() {
-    return jobs().filter((j) => state.selected.has(j.id));
+    return state.jobs.filter((j) => state.selected.has(j.id));
   }
 
   exportSelectedBtn.addEventListener("click", () => {
@@ -115,15 +122,22 @@
 
   exportAllBtn.addEventListener("click", () => {
     const includeDescription = confirm("Include full job descriptions in the PDF? Click OK for yes, Cancel for no.");
-    App.exportJobsToPdf(jobs(), { includeDescription });
+    App.exportJobsToPdf(state.jobs, { includeDescription });
   });
 
-  removeSelectedBtn.addEventListener("click", () => {
-    App.removeSavedJobs(Array.from(state.selected));
+  removeSelectedBtn.addEventListener("click", async () => {
+    const ids = Array.from(state.selected);
+    await Promise.all(ids.map((id) => App.removeSavedJob(id)));
+    state.jobs = state.jobs.filter((j) => !state.selected.has(j.id));
     state.selected.clear();
     render();
   });
 
+  try {
+    state.jobs = await App.getSavedJobs();
+  } catch (err) {
+    console.error(err);
+  }
   render();
 })();
 </script>

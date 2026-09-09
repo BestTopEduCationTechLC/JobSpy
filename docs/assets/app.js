@@ -1,116 +1,77 @@
-// Shared logic for the JobSpy Search static site: identity, saved jobs,
-// boolean search parsing, triggering the scraper workflow, and PDF export.
+// Shared logic for the JobSpy Search static site: auth against the backend,
+// server-stored saved jobs, boolean search parsing, triggering the scraper
+// workflow via the backend, and client-side PDF export.
 (function (global) {
   "use strict";
 
-  const GH_OWNER = "BestTopEduCationTechLC";
-  const GH_REPO = "JobSpy";
-  const GH_WORKFLOW = "scrape-jobs.yml";
-  const GH_REF = "TESTING";
+  // Set this once your backend is deployed (see server/README.md).
+  const BACKEND_URL = "https://YOUR-BACKEND.onrender.com";
 
-  const KEY_USERNAME = "jobspy_username";
-  const KEY_SAVED = "jobspy_saved_jobs";
-  const KEY_TOKEN = "jobspy_gh_token";
-
-  // ---------- Identity ("login") ----------
-  // There is no backend/auth here — this is a static site. "Logging in" just
-  // asks for a display name once and remembers it in this browser only, so the
-  // personal page can be titled per-person as the spec asks for.
-  function getUsername() {
-    try { return localStorage.getItem(KEY_USERNAME) || ""; } catch (e) { return ""; }
-  }
-
-  function setUsername(name) {
-    try { localStorage.setItem(KEY_USERNAME, name); } catch (e) {}
-  }
-
-  function ensureUsername() {
-    let name = getUsername();
-    if (!name) {
-      name = (global.prompt("Welcome! What name should we use for your saved-jobs page?", "") || "").trim();
-      if (!name) name = "Guest";
-      setUsername(name);
-    }
-    return name;
-  }
-
-  // ---------- Saved jobs ----------
-  function getSavedJobs() {
-    try { return JSON.parse(localStorage.getItem(KEY_SAVED) || "[]"); } catch (e) { return []; }
-  }
-
-  function setSavedJobs(jobs) {
-    try { localStorage.setItem(KEY_SAVED, JSON.stringify(jobs)); } catch (e) {}
-  }
-
-  function saveJobs(jobs) {
-    const existing = getSavedJobs();
-    const byId = new Map(existing.map((j) => [j.id, j]));
-    jobs.forEach((j) => byId.set(j.id, j));
-    setSavedJobs(Array.from(byId.values()));
-  }
-
-  function removeSavedJobs(ids) {
-    const idSet = new Set(ids);
-    setSavedJobs(getSavedJobs().filter((j) => !idSet.has(j.id)));
-  }
-
-  // ---------- GitHub token (for the "Run New Search" button) ----------
-  // Stored only in this browser's localStorage and sent only to api.github.com
-  // directly from the browser — this project has no server to hold it instead.
-  function getToken() {
-    try { return localStorage.getItem(KEY_TOKEN) || ""; } catch (e) { return ""; }
-  }
-
-  function setToken(token) {
-    try {
-      if (token) localStorage.setItem(KEY_TOKEN, token);
-      else localStorage.removeItem(KEY_TOKEN);
-    } catch (e) {}
-  }
-
-  function ensureToken() {
-    let token = getToken();
-    if (!token) {
-      token = (global.prompt(
-        "To trigger a new scrape, paste a GitHub Personal Access Token with 'workflow' scope.\n" +
-        "It is saved only in this browser (localStorage) and sent only to api.github.com.\n" +
-        "Create one at https://github.com/settings/tokens (classic, scope: 'workflow').",
-        ""
-      ) || "").trim();
-      if (token) setToken(token);
-    }
-    return token;
-  }
-
-  async function dispatchScrape(inputs) {
-    const token = ensureToken();
-    if (!token) throw new Error("No GitHub token provided — cannot trigger the workflow.");
-
-    const res = await fetch(
-      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        body: JSON.stringify({ ref: GH_REF, inputs }),
-      }
-    );
-
+  async function api(path, options) {
+    const res = await fetch(BACKEND_URL + path, {
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    if (res.status === 401) return { unauthorized: true };
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      if (res.status === 401 || res.status === 403) {
-        setToken(""); // bad/expired token — drop it so next attempt re-prompts
-      }
-      throw new Error(`GitHub API error ${res.status}: ${text || res.statusText}`);
+      throw new Error(`Backend error ${res.status}: ${text || res.statusText}`);
     }
+    return res.json();
+  }
+
+  // ---------- Auth ----------
+  let currentUser = null;
+
+  async function fetchCurrentUser() {
+    try {
+      const data = await api("/api/me");
+      currentUser = data.user || null;
+    } catch (e) {
+      console.error("Could not reach backend:", e);
+      currentUser = null;
+    }
+    return currentUser;
+  }
+
+  function getUser() { return currentUser; }
+
+  function loginUrl() { return `${BACKEND_URL}/auth/github/login`; }
+
+  async function logout() {
+    try { await api("/auth/logout", { method: "POST" }); } catch (e) {}
+    currentUser = null;
+    location.reload();
+  }
+
+  // ---------- Saved jobs (server-stored, per logged-in user) ----------
+  async function getSavedJobs() {
+    const data = await api("/api/saved-jobs");
+    if (data.unauthorized) return [];
+    return data.jobs || [];
+  }
+
+  async function saveJobs(jobs) {
+    const data = await api("/api/saved-jobs", { method: "POST", body: JSON.stringify({ jobs }) });
+    if (data.unauthorized) throw new Error("Please sign in with GitHub first.");
+  }
+
+  async function removeSavedJob(jobId) {
+    await api(`/api/saved-jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
+  }
+
+  // ---------- Trigger a new scrape ----------
+  // The backend holds one bot token server-side, so signed-in users never
+  // need a GitHub token of their own.
+  async function dispatchScrape(inputs) {
+    const data = await api("/api/trigger-scrape", { method: "POST", body: JSON.stringify({ inputs }) });
+    if (data.unauthorized) throw new Error("Please sign in with GitHub first.");
+    if (data.error) throw new Error(data.error);
   }
 
   function actionsRunUrl() {
-    return `https://github.com/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}`;
+    return "https://github.com/BestTopEduCationTechLC/JobSpy/actions/workflows/scrape-jobs.yml";
   }
 
   // ---------- Boolean search parsing (AND / OR / NOT) ----------
@@ -204,7 +165,7 @@
       if (upper === "AND" || tok === "(" || tok === ")") continue; // implicit AND; drop grouping for the scraper term
       if (upper === "NOT") {
         const nextTok = tokens[i + 1];
-        if (nextTok && nextTok !== "(" ) {
+        if (nextTok && nextTok !== "(") {
           out.push("-" + stripQuotes(nextTok));
           i++;
         }
@@ -280,10 +241,11 @@
   }
 
   // ---------- Shared nav ----------
-  function renderNav(activePage) {
-    const name = getUsername();
+  async function renderNav(activePage) {
     const container = document.getElementById("topnav");
     if (!container) return;
+    await fetchCurrentUser();
+    const user = getUser();
     const link = (href, label, key) =>
       `<a class="navlink${activePage === key ? " active" : ""}" href="${href}">${label}</a>`;
     container.innerHTML = `
@@ -293,16 +255,15 @@
         ${link("personal.html", "My Saved Jobs", "personal")}
         ${link("contact.html", "Contact", "contact")}
         <span class="whoami">
-          ${name ? `Hi, ${escapeHtml(name)}` : "Not signed in"}
-          <button type="button" id="navChangeName">${name ? "change name" : "set name"}</button>
+          ${user ? `Hi, ${escapeHtml(user.username)}` : "Not signed in"}
+          <button type="button" id="navAuthBtn">${user ? "sign out" : "sign in with GitHub"}</button>
         </span>
       </div>`;
-    const btn = document.getElementById("navChangeName");
+    const btn = document.getElementById("navAuthBtn");
     if (btn) {
       btn.addEventListener("click", () => {
-        const current = getUsername();
-        const next = (global.prompt("Display name:", current) || "").trim();
-        if (next) { setUsername(next); location.reload(); }
+        if (user) logout();
+        else location.href = loginUrl();
       });
     }
   }
@@ -314,9 +275,10 @@
   }
 
   global.JobSpyApp = {
-    getUsername, setUsername, ensureUsername,
-    getSavedJobs, setSavedJobs, saveJobs, removeSavedJobs,
-    getToken, setToken, ensureToken, dispatchScrape, actionsRunUrl,
+    BACKEND_URL,
+    getUser, fetchCurrentUser, loginUrl, logout,
+    getSavedJobs, saveJobs, removeSavedJob,
+    dispatchScrape, actionsRunUrl,
     parseBooleanQuery, buildPredicate, toScraperTerm,
     exportJobsToPdf, renderNav, escapeHtml,
   };
