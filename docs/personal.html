@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Personal Interface</title>
+<title>BestTop Personal Interface</title>
 <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
   <nav class="topnav" id="topnav"></nav>
 
   <div class="wrap">
-    <h1 id="pageTitle">Personal Interface<span class="count-badge" id="countBadge">0</span></h1>
+    <h1 id="pageTitle">BestTop Personal Interface<span class="count-badge" id="countBadge">0</span></h1>
     <p class="sub">Jobs you've saved from the search page, stored on your account.</p>
     <p class="hint" id="authHint" style="display:none;">Sign in (top right) to see your saved jobs.</p>
 
@@ -57,7 +57,7 @@
   const App = window.JobSpyApp;
   const user = await App.renderNav("personal");
   const name = user ? user.username : "Guest";
-  document.title = `${name} personal interface test`;
+  document.title = `BestTop — ${name} personal interface test`;
   document.getElementById("pageTitle").innerHTML =
     `${App.escapeHtml(name)} personal interface test<span class="count-badge" id="countBadge">0</span>`;
 
