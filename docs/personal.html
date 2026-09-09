@@ -26,13 +26,13 @@
     <div id="results"></div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/app.js"></script>
 <script>
 (async function () {
   const App = window.JobSpyApp;
-  await App.renderNav("personal");
-  const user = App.getUser();
+  const user = await App.renderNav("personal");
   const name = user ? user.username : "Guest";
   document.title = `${name} personal interface test`;
   document.getElementById("pageTitle").innerHTML =

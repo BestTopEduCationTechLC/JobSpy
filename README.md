@@ -280,10 +280,12 @@ plus a scheduled scraper that keeps its data fresh.
 - **`index.html`** at the repo root just redirects into `docs/index.html`, in case GitHub Pages
   is configured to build from the branch root instead of `/docs`.
 
-Login, saved jobs, and the scrape-trigger button all depend on the small backend in
-[`server/`](server/README.md) — see that README for how to deploy it. Until `BACKEND_URL` in
-`docs/assets/app.js` is set to a deployed backend, the site still works for browsing/searching
-the already-scraped data, but signing in, saving jobs, and "Run New Search" won't function.
+Login, saved jobs, and the scrape-trigger button all depend on Supabase — see
+[`supabase/README.md`](supabase/README.md) for the full setup (GitHub OAuth provider, the
+`saved_jobs` table + Row Level Security, and the Edge Function that triggers scrapes). Until
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` in `docs/assets/app.js` are set to a real project, the site
+still works for browsing/searching the already-scraped data, but signing in, saving jobs, and
+"Run New Search" won't function.
 
 ### Boolean search vs. the scraper's own query syntax
 
@@ -300,9 +302,11 @@ scraper** — never passed into JobSpy directly:
 ### Triggering a new scrape from the page
 
 GitHub Pages is static hosting — it can't run server code or hold a secret safely, so the **Run
-New Search** button and saved-jobs storage go through the backend in [`server/`](server/README.md)
-instead: you sign in with GitHub, and the backend (which holds one bot token server-side) calls
-`workflow_dispatch` on your behalf. No individual user needs their own token.
+New Search** button and saved-jobs storage go through Supabase instead: you sign in with GitHub
+(Supabase Auth), saved jobs are stored in Supabase Postgres behind Row Level Security, and
+clicking the button calls a Supabase Edge Function ([`supabase/functions/trigger-scrape`](supabase/functions/trigger-scrape/index.ts))
+which holds one bot token server-side and calls `workflow_dispatch` on your behalf. No
+individual user needs their own token.
 
 `.github/workflows/scrape-jobs.yml` runs every Monday at 06:00 UTC regardless, and also accepts
 all of the above as `workflow_dispatch` inputs if you'd rather trigger it from the Actions tab

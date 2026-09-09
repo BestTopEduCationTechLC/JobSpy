@@ -100,14 +100,15 @@
     </footer>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="assets/app.js"></script>
 <script>
 (async function () {
   const App = window.JobSpyApp;
-  await App.renderNav("index");
+  const currentUser = await App.renderNav("index");
   document.getElementById("actionsLink").href = App.actionsRunUrl();
-  if (!App.getUser()) document.getElementById("authHint").style.display = "block";
+  if (!currentUser) document.getElementById("authHint").style.display = "block";
 
   const state = { jobs: [], selected: new Set() };
 
@@ -181,7 +182,7 @@
   });
 
   saveSelectedBtn.addEventListener("click", async () => {
-    if (!App.getUser()) { location.href = App.loginUrl(); return; }
+    if (!(await App.getUser())) { App.login(); return; }
     try {
       const n = state.selected.size;
       await App.saveJobs(selectedJobObjects());
@@ -197,7 +198,7 @@
   });
 
   document.getElementById("runSearchBtn").addEventListener("click", async () => {
-    if (!App.getUser()) { location.href = App.loginUrl(); return; }
+    if (!(await App.getUser())) { App.login(); return; }
     const siteMap = [
       ["siteIndeed", "indeed"], ["siteLinkedin", "linkedin"], ["siteGoogle", "google"],
       ["siteZip", "zip_recruiter"], ["siteGlassdoor", "glassdoor"], ["siteBayt", "bayt"],
@@ -206,10 +207,10 @@
     if (sites.length === 0) { alert("Select at least one site."); return; }
 
     const scraperTerm = App.toScraperTerm(searchInput.value) || "jobs";
-    const location = document.getElementById("locationInput").value.trim();
+    const targetLocation = document.getElementById("locationInput").value.trim();
     const inputs = {
       search_term: scraperTerm,
-      location: location,
+      location: targetLocation,
       country_indeed: document.getElementById("countryInput").value.trim(),
       site_names: sites.join(","),
       results_wanted: String(document.getElementById("resultsInput").value || "100"),
