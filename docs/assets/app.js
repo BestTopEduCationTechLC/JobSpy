@@ -37,8 +37,12 @@
     };
   }
 
+  function normalizeUsername(username) {
+    return String(username || "").trim().toLowerCase();
+  }
+
   function validateUsername(username) {
-    if (!USERNAME_RE.test(username)) {
+    if (!USERNAME_RE.test(normalizeUsername(username))) {
       return "Username must be 3-32 characters: letters, numbers, . _ or - only.";
     }
     return null;
@@ -54,16 +58,31 @@
   async function signUp(username, email, password) {
     const err = validateUsername(username) || validatePassword(password);
     if (err) throw new Error(err);
-    if (!EMAIL_RE.test(email)) throw new Error("Enter a valid email address.");
+    const trimmedEmail = String(email || "").trim();
+    if (!EMAIL_RE.test(trimmedEmail)) throw new Error("Enter a valid email address.");
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: trimmedEmail,
       password,
       options: {
-        data: { username: username.trim().toLowerCase() },
+        data: { username: normalizeUsername(username) },
         emailRedirectTo: location.origin + location.pathname.replace(/[^/]*$/, "index.html"),
       },
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (/already registered|already exists/i.test(error.message)) {
+        throw new Error("An account with that email already exists. Try signing in instead.");
+      }
+      throw new Error(error.message);
+    }
+    // Supabase's anti-enumeration behavior: signing up again with an email
+    // that's already registered returns 200 OK with no error, but the
+    // returned user has an empty identities array instead of a new one —
+    // that's the only signal a duplicate happened. Without checking this,
+    // re-signing-up with an existing (even unconfirmed) email silently
+    // looks like success ("check your inbox") when no new email was sent.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error("An account with that email already exists. Try signing in instead.");
+    }
     // With "Confirm email" on, signUp() does not return an active session —
     // the account exists but can't sign in until the emailed link is clicked.
     return { needsConfirmation: !data.session };
@@ -73,13 +92,22 @@
     const err = validateUsername(username) || validatePassword(password);
     if (err) throw new Error(err);
     const { data: email, error: lookupError } = await supabase.rpc("get_login_email", {
-      p_username: username.trim().toLowerCase(),
+      p_username: normalizeUsername(username),
     });
-    if (lookupError || !email) throw new Error("No account found for that username.");
+    if (lookupError) {
+      // A real backend/config problem (e.g. the RPC isn't deployed or isn't
+      // granted to anon/authenticated) — surface it plainly instead of
+      // masking it behind "no account found", which would be misleading.
+      throw new Error(`Could not verify that username: ${lookupError.message}`);
+    }
+    if (!email) throw new Error("No account found for that username.");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       if (/confirm/i.test(error.message)) {
         throw new Error("Please confirm your email first — check the inbox you signed up with.");
+      }
+      if (/invalid login credentials/i.test(error.message)) {
+        throw new Error("Incorrect password for that username.");
       }
       throw new Error(error.message);
     }
@@ -405,7 +433,10 @@
     doc.save(`jobspy-export-${Date.now()}.pdf`);
   }
 
-  // ---------- Shared nav + sign-in/sign-up modal ----------
+  // ---------- Shared nav ----------
+  // Sign-in/sign-up/sign-out all live on login.html now (no popup modal).
+  // The nav's auth button either signs the user out inline, or sends them to
+  // login.html with a redirect back to the current page.
   async function renderNav(activePage) {
     const container = document.getElementById("topnav");
     if (!container) return;
@@ -424,117 +455,13 @@
         </span>
       </div>`;
     const btn = document.getElementById("navAuthBtn");
-    if (btn) btn.addEventListener("click", () => (user ? logout() : openAuthModal()));
+    if (btn) btn.addEventListener("click", () => (user ? logout() : goToLogin()));
     return user;
   }
 
-  function openAuthModal() {
-    if (document.getElementById("authModalBackdrop")) return;
-
-    let mode = "signin"; // or "signup"
-    const backdrop = document.createElement("div");
-    backdrop.className = "modal-backdrop";
-    backdrop.id = "authModalBackdrop";
-    backdrop.innerHTML = `
-      <div class="modal">
-        <h2 id="authModalTitle">Sign in</h2>
-        <div class="field">
-          <label for="authUsername">Username</label>
-          <input type="text" id="authUsername" autocomplete="username" />
-        </div>
-        <div class="field" id="authEmailField" style="display:none;">
-          <label for="authEmail">Email address</label>
-          <input type="text" id="authEmail" autocomplete="email" placeholder="you@example.com" />
-        </div>
-        <div class="field" id="authPasswordField">
-          <label for="authPassword">Password</label>
-          <input type="password" id="authPassword" autocomplete="current-password" />
-        </div>
-        <p class="hint" id="authModalForgot" style="margin: 0 0 14px;">
-          <button type="button" id="authForgotBtn">Forgot password?</button>
-        </p>
-        <p class="hint" id="authModalInfo" style="display:none;"></p>
-        <p class="hint" id="authModalError" style="display:none; color: var(--danger);"></p>
-        <div class="actions">
-          <button type="button" id="authModalToggle">Need an account? Sign up</button>
-          <span class="spacer"></span>
-          <button type="button" id="authModalCancel">Cancel</button>
-          <button type="button" class="primary" id="authModalSubmit">Sign in</button>
-        </div>
-      </div>`;
-    document.body.appendChild(backdrop);
-
-    const title = document.getElementById("authModalTitle");
-    const toggleBtn = document.getElementById("authModalToggle");
-    const submitBtn = document.getElementById("authModalSubmit");
-    const errorEl = document.getElementById("authModalError");
-    const infoEl = document.getElementById("authModalInfo");
-    const emailField = document.getElementById("authEmailField");
-    const passwordField = document.getElementById("authPasswordField");
-    const forgotEl = document.getElementById("authModalForgot");
-    const forgotBtn = document.getElementById("authForgotBtn");
-    const usernameEl = document.getElementById("authUsername");
-    const emailEl = document.getElementById("authEmail");
-    const passwordEl = document.getElementById("authPassword");
-
-    function close() { backdrop.remove(); }
-
-    function applyMode() {
-      title.textContent = { signin: "Sign in", signup: "Create account", reset: "Reset password" }[mode];
-      submitBtn.textContent = { signin: "Sign in", signup: "Create account", reset: "Send reset link" }[mode];
-      toggleBtn.textContent = mode === "signup" ? "Have an account? Sign in" : "Need an account? Sign up";
-      toggleBtn.style.display = mode === "reset" ? "none" : "inline-block";
-      emailField.style.display = mode === "signup" ? "block" : "none";
-      passwordField.style.display = mode === "reset" ? "none" : "block";
-      forgotEl.style.display = mode === "signin" ? "block" : "none";
-      errorEl.style.display = "none";
-      infoEl.style.display = "none";
-    }
-
-    toggleBtn.addEventListener("click", () => { mode = mode === "signup" ? "signin" : "signup"; applyMode(); });
-    document.getElementById("authModalCancel").addEventListener("click", close);
-    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
-
-    forgotBtn.addEventListener("click", () => { mode = "reset"; applyMode(); });
-
-    submitBtn.addEventListener("click", async () => {
-      errorEl.style.display = "none";
-      infoEl.style.display = "none";
-      submitBtn.disabled = true;
-      try {
-        if (mode === "signin") {
-          await signIn(usernameEl.value, passwordEl.value);
-          location.reload();
-        } else if (mode === "signup") {
-          const { needsConfirmation } = await signUp(usernameEl.value, emailEl.value, passwordEl.value);
-          if (needsConfirmation) {
-            const confirmMessage = `Account created! Check ${emailEl.value.trim()} for a confirmation link, then sign in.`;
-            mode = "signin";
-            applyMode(); // resets infoEl.style.display, so set the message after
-            infoEl.textContent = confirmMessage;
-            infoEl.style.display = "block";
-            submitBtn.disabled = false;
-          } else {
-            location.reload();
-          }
-        } else {
-          await requestPasswordReset(usernameEl.value);
-          const resetMessage = "If that username has a confirmed account, a password reset link has been emailed to it.";
-          mode = "signin";
-          applyMode();
-          infoEl.textContent = resetMessage;
-          infoEl.style.display = "block";
-          submitBtn.disabled = false;
-        }
-      } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.style.display = "block";
-        submitBtn.disabled = false;
-      }
-    });
-
-    applyMode();
-    usernameEl.focus();
+  function goToLogin(redirectTo) {
+    const target = redirectTo || (location.pathname.split("/").pop() || "index.html") + location.search;
+    location.href = "login.html?redirect=" + encodeURIComponent(target);
   }
 
   function escapeHtml(str) {
@@ -544,7 +471,7 @@
   }
 
   global.JobSpyApp = {
-    supabase, getUser, signUp, signIn, logout, openAuthModal,
+    supabase, getUser, signUp, signIn, logout, goToLogin,
     getEmailStatus, updateContactEmail, requestPasswordReset, updatePassword,
     getSavedJobs, saveJobs, removeSavedJob,
     createSearchRun, getSearchRun, listSearchRuns, getSearchResults, pollSearchRun,

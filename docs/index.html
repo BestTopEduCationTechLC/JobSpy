@@ -199,7 +199,7 @@
   });
 
   saveSelectedBtn.addEventListener("click", async () => {
-    if (!(await App.getUser())) { App.openAuthModal(); return; }
+    if (!(await App.getUser())) { App.goToLogin(); return; }
     try {
       const n = state.selected.size;
       await App.saveJobs(selectedJobObjects());
@@ -215,7 +215,7 @@
   });
 
   document.getElementById("runSearchBtn").addEventListener("click", async () => {
-    if (!(await App.getUser())) { App.openAuthModal(); return; }
+    if (!(await App.getUser())) { App.goToLogin(); return; }
     const siteMap = [
       ["siteIndeed", "indeed"], ["siteLinkedin", "linkedin"], ["siteGoogle", "google"],
       ["siteZip", "zip_recruiter"], ["siteGlassdoor", "glassdoor"], ["siteBayt", "bayt"],
