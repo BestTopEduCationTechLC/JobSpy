@@ -364,7 +364,10 @@
         }
         continue;
       }
-      out.push(tok);
+      // Strip surrounding quotes: the literal " characters were passed straight
+      // into JobSpy's search_term, and most sites don't treat that as phrase
+      // syntax — it just made the term unrecognizable to the scraper.
+      out.push(stripQuotes(tok));
     }
     return out.join(" ").trim();
   }
