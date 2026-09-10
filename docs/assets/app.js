@@ -414,7 +414,7 @@
       `<a class="navlink${activePage === key ? " active" : ""}" href="${href}">${label}</a>`;
     container.innerHTML = `
       <div class="inner">
-        <span class="brand">JobSpy Search</span>
+        <span class="brand">Besttop Career Intelligence</span>
         ${link("index.html", "Search", "index")}
         ${link("personal.html", "My Saved Jobs", "personal")}
         ${link("contact.html", "Contact", "contact")}
