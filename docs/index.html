@@ -300,8 +300,8 @@
       render();
     })
     .catch((err) => {
-      metaLine.textContent = "Could not load job data.";
-      resultsEl.innerHTML = '<div class="empty"> No data available yet. Run the scraper workflow first.</div>';
+      metaLine.textContent = "Could not load job data. （＞人＜；）";
+      resultsEl.innerHTML = '<div class="empty"> No data available yet. Please try again.</div>';
       console.error(err);
     });
 })();
