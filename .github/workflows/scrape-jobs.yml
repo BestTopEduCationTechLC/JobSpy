@@ -173,12 +173,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # Optional — leave unset in repo secrets to keep notifications a no-op.
-          MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
-          MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
-          MAILGUN_SENDER: ${{ secrets.MAILGUN_SENDER }}
-        working-directory: scraper
-        run: python upload_results.py jobs.csv "$RUN_ID"
+        run: python scraper/upload_results.py scraper/jobs.csv "$RUN_ID"
 
       - name: Convert results to JSON for the shared frontend view
         if: ${{ env.RUN_ID == '' }}
@@ -200,8 +195,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
-          MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
-          MAILGUN_SENDER: ${{ secrets.MAILGUN_SENDER }}
-        working-directory: scraper
-        run: python mark_run_failed.py "$RUN_ID" "Scrape failed — check run $GITHUB_RUN_ID in the Actions log."
+        run: python scraper/mark_run_failed.py "$RUN_ID" "Scrape failed — check run $GITHUB_RUN_ID in the Actions log."

@@ -197,60 +197,15 @@
     if (error) throw error;
   }
 
-  // ---------- Error reports (per signed-in user) ----------
-  // Best-effort logging so a signed-in user can see what went wrong without
-  // needing browser dev tools. Never throws itself — a failure here should
-  // never break whatever the user was actually doing.
-  async function logError(message, details) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      await supabase.from("error_logs").insert({
-        message: String(message == null ? "Unknown error" : message).slice(0, 2000),
-        details: details ? String(details).slice(0, 4000) : null,
-        page: location.pathname.split("/").pop() || "index.html",
-      });
-    } catch (_e) {
-      // swallow — logging itself must never surface an error to the user
-    }
-  }
-
-  async function getErrorLogs() {
-    const { data, error } = await supabase
-      .from("error_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (error) throw error;
-    return data || [];
-  }
-
-  async function clearErrorLogs() {
-    const { error } = await supabase.from("error_logs").delete().not("id", "is", null);
-    if (error) throw error;
-  }
-
-  // Catch uncaught errors/rejections on every page that loads this script.
-  global.addEventListener("error", (event) => {
-    logError(event.message || "Uncaught error", event.error && event.error.stack);
-  });
-  global.addEventListener("unhandledrejection", (event) => {
-    const reason = event.reason;
-    logError(
-      reason && reason.message ? reason.message : String(reason),
-      reason && reason.stack
-    );
-  });
-
   // ---------- Private per-user search runs ----------
   // Each "Run New Search" creates its own row here first; the GitHub Actions
   // workflow writes that run's results into search_results (via a service
   // role key, bypassing RLS) instead of the one shared docs/data/jobs.json —
   // so one user's search never overwrites or leaks into another's results.
-  async function createSearchRun({ searchTerm, location: loc, params, notifyEmail }) {
+  async function createSearchRun({ searchTerm, location: loc, params }) {
     const { data, error } = await supabase
       .from("search_runs")
-      .insert({ search_term: searchTerm, location: loc, params, notify_email: !!notifyEmail })
+      .insert({ search_term: searchTerm, location: loc, params })
       .select()
       .single();
     if (error) throw error;
@@ -522,7 +477,6 @@
     supabase, getUser, signUp, signIn, logout, goToLogin,
     getEmailStatus, updateContactEmail, requestPasswordReset, updatePassword,
     getSavedJobs, saveJobs, removeSavedJob,
-    logError, getErrorLogs, clearErrorLogs,
     createSearchRun, getSearchRun, listSearchRuns, getSearchResults, pollSearchRun,
     dispatchScrape,
     parseBooleanQuery, buildPredicate, toScraperTerm,

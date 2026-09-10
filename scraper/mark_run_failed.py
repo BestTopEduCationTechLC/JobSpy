@@ -8,8 +8,6 @@ from datetime import datetime, timezone
 
 import requests
 
-from notify import maybe_notify
-
 
 def main(run_id: str, error: str) -> None:
     supabase_url = os.environ["SUPABASE_URL"].rstrip("/")
@@ -31,7 +29,6 @@ def main(run_id: str, error: str) -> None:
         timeout=30,
     )
     resp.raise_for_status()
-    maybe_notify(supabase_url, service_key, run_id, "failed", error)
 
 
 if __name__ == "__main__":
