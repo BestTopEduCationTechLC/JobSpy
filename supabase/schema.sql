@@ -116,3 +116,42 @@ $$;
 
 revoke all on function public.get_login_email(text) from public;
 grant execute on function public.get_login_email(text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Optional per-search email notifications. The frontend flags a search_runs
+-- row with notify_email = true when creating it (docs/assets/app.js
+-- createSearchRun); scraper/notify.py sends the email once the GitHub
+-- Actions workflow finishes that run, using the MAILGUN_API_KEY /
+-- MAILGUN_DOMAIN repo secrets. Leave those secrets unset to keep this a
+-- no-op — the scrape itself never depends on Mailgun being configured.
+
+alter table public.search_runs
+  add column if not exists notify_email boolean not null default false;
+
+-- ---------------------------------------------------------------------------
+-- Client-side error reports. Signed-in users' browsers log uncaught errors
+-- (and select handled failures) here so they — or whoever is helping them —
+-- can see what actually went wrong, without needing browser dev tools.
+
+create table if not exists public.error_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  message text not null,
+  details text,
+  page text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.error_logs enable row level security;
+
+create policy "Users can view their own error logs"
+  on public.error_logs for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own error logs"
+  on public.error_logs for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own error logs"
+  on public.error_logs for delete
+  using (auth.uid() = user_id);

@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 import pandas as pd
 import requests
 
+from notify import maybe_notify
+
 FIELDS = [
     "id", "site", "title", "company", "location", "job_url",
     "job_type", "date_posted", "description",
@@ -72,6 +74,7 @@ def main(csv_path: str, run_id: str) -> None:
     resp.raise_for_status()
 
     print(f"Uploaded {len(rows)} results for run {run_id}")
+    maybe_notify(supabase_url, service_key, run_id, "completed")
 
 
 if __name__ == "__main__":

@@ -40,6 +40,15 @@
       <div id="historyList"></div>
     </div>
 
+    <div class="card" id="errorLogCard" style="display:none;">
+      <h2 style="margin-top:0;">Error Reports</h2>
+      <p class="hint" style="margin-top:0;">
+        Errors encountered while using this site, logged to your account so you can see what went wrong.
+      </p>
+      <div id="errorLogList"></div>
+      <button type="button" id="clearErrorsBtn" style="margin-top:10px;" disabled>Clear all</button>
+    </div>
+
     <div class="toolbar">
       <label class="checkline"><input type="checkbox" id="selectAll" /> Select all</label>
       <span id="selectedCount" class="hint" style="margin: 0;">0 selected</span>
@@ -81,6 +90,7 @@
 
   document.getElementById("accountCard").style.display = "block";
   document.getElementById("historyCard").style.display = "block";
+  document.getElementById("errorLogCard").style.display = "block";
 
   // ---- Account: confirmed email on file (required at signup, changeable here) ----
   const emailStatusEl = document.getElementById("emailStatus");
@@ -117,6 +127,7 @@
       emailSaveMsg.style.display = "block";
       await refreshEmailStatus();
     } catch (err) {
+      App.logError(`Update contact email failed: ${err.message}`, err.stack);
       emailSaveMsg.textContent = `Could not update email: ${err.message}`;
       emailSaveMsg.style.display = "block";
     } finally {
@@ -163,6 +174,45 @@
   }
 
   App.listSearchRuns().then(renderHistory).catch((err) => console.error(err));
+
+  // ---- Error reports: logged client-side errors for this account ----
+  const errorLogListEl = document.getElementById("errorLogList");
+  const clearErrorsBtn = document.getElementById("clearErrorsBtn");
+
+  async function refreshErrorLogs() {
+    try {
+      const logs = await App.getErrorLogs();
+      clearErrorsBtn.disabled = logs.length === 0;
+      if (logs.length === 0) {
+        errorLogListEl.innerHTML = '<p class="hint" style="margin:0;">No errors logged.</p>';
+        return;
+      }
+      errorLogListEl.innerHTML = logs.map((log) => `
+        <div class="job">
+          <div class="body">
+            <h3 style="font-size:14px;">${App.escapeHtml(log.message)} <span class="tag">${App.escapeHtml(log.page || "")}</span></h3>
+            <div class="company">${new Date(log.created_at).toLocaleString()}</div>
+            ${log.details ? `<div class="hint" style="margin:4px 0 0; white-space:pre-wrap;">${App.escapeHtml(log.details)}</div>` : ""}
+          </div>
+        </div>`).join("");
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  clearErrorsBtn.addEventListener("click", async () => {
+    if (!confirm("Clear all logged errors?")) return;
+    clearErrorsBtn.disabled = true;
+    try {
+      await App.clearErrorLogs();
+      await refreshErrorLogs();
+    } catch (err) {
+      alert(`Could not clear errors: ${err.message}`);
+      clearErrorsBtn.disabled = false;
+    }
+  });
+
+  refreshErrorLogs();
 
   function render() {
     const list = state.jobs;

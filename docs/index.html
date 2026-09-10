@@ -69,6 +69,7 @@
       <div class="field-row">
         <label class="checkline"><input type="checkbox" id="remoteInput" /> Remote only</label>
         <label class="checkline"><input type="checkbox" id="easyApplyInput" /> Easy-apply only</label>
+        <label class="checkline"><input type="checkbox" id="notifyEmailInput" /> Email me when this search finishes</label>
       </div>
       <p class="hint" style="margin-top: 0;">
         Note (Indeed's own limits): Indeed and LinkedIn each honor only one of
@@ -205,6 +206,7 @@
       await App.saveJobs(selectedJobObjects());
       alert(`Saved ${n} job(s) to your personal page.`);
     } catch (err) {
+      App.logError(`Save selected jobs failed: ${err.message}`, err.stack);
       alert(`Could not save: ${err.message}`);
     }
   });
@@ -246,6 +248,7 @@
         searchTerm: scraperTerm,
         location: targetLocation,
         params: inputs,
+        notifyEmail: document.getElementById("notifyEmailInput").checked,
       });
       await App.dispatchScrape(inputs, run.id);
 
@@ -257,10 +260,12 @@
 
       state.stopPolling = App.pollSearchRun(run.id, async (updatedRun, pollError) => {
         if (pollError) {
+          App.logError(`Polling search run failed: ${pollError.message}`, pollError.stack);
           showRunStatus(`Search status could not be found (•_•): ${pollError.message}`);
           return;
         }
         if (updatedRun.status === "failed") {
+          App.logError(`Search run failed: ${updatedRun.error || "unknown error"}`);
           showRunStatus(`Search failed ( ˘︹˘ ): ${updatedRun.error || "unknown error (>ლ)"}`);
           return;
         }
@@ -269,6 +274,7 @@
           try {
             state.jobs = await App.getSearchResults(run.id);
           } catch (err) {
+            App.logError(`Loading search results failed: ${err.message}`, err.stack);
             showRunStatus(`Could not load results ≡(▔﹏▔)≡ : ${err.message}`);
             return;
           }
@@ -278,6 +284,7 @@
       }, 8000);
     } catch (err) {
       console.error(err);
+      App.logError(`Starting scrape failed: ${err.message}`, err.stack);
       alert(`Could not start the scrape (￣ i ￣;) : ${err.message}`);
     } finally {
       btn.disabled = false;
