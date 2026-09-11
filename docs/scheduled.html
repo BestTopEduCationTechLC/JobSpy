@@ -38,10 +38,6 @@
             </select>
           </div>
           <div class="field">
-            <label for="locationInput">Location</label>
-            <input type="text" id="locationInput" placeholder="Singapore" value="Singapore" />
-          </div>
-          <div class="field">
             <label for="countryInput">Country (Indeed/Glassdoor)</label>
             <input type="text" id="countryInput" placeholder="Singapore" />
           </div>
@@ -147,7 +143,7 @@
     if (sites.length === 0) { showMsg(createMsg, "Select at least one site."); return; }
 
     const scraperTerm = App.toScraperTerm(searchInput.value) || "jobs";
-    const targetLocation = document.getElementById("locationInput").value.trim();
+    const targetLocation = "Singapore"; // fixed — no location box; see scraper/scrape_defaults.py
     const params = {
       country_indeed: document.getElementById("countryInput").value.trim(),
       site_names: sites.join(","),
