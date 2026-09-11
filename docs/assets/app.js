@@ -258,6 +258,54 @@
     return () => { stopped = true; };
   }
 
+  // ---------- Recurring (daily/weekly) per-user scrapes ----------
+  // Entirely separate storage from saved_jobs and from the one-off
+  // search_runs/search_results above: a schedule is a standing request kept
+  // running by scraper/run_scheduled_searches.py (via
+  // .github/workflows/scheduled-scrapes.yml, hourly, service-role key), and
+  // its results live only in scheduled_search_results.
+  async function createScheduledSearch({ frequency, searchTerm, location: loc, params }) {
+    const { data, error } = await supabase
+      .from("scheduled_searches")
+      .insert({ frequency, search_term: searchTerm, location: loc, params })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function listScheduledSearches() {
+    const { data, error } = await supabase
+      .from("scheduled_searches")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function setScheduledSearchActive(scheduleId, isActive) {
+    const { error } = await supabase
+      .from("scheduled_searches")
+      .update({ is_active: isActive })
+      .eq("id", scheduleId);
+    if (error) throw error;
+  }
+
+  async function deleteScheduledSearch(scheduleId) {
+    const { error } = await supabase.from("scheduled_searches").delete().eq("id", scheduleId);
+    if (error) throw error;
+  }
+
+  async function getScheduledSearchResults(scheduleId) {
+    const { data, error } = await supabase
+      .from("scheduled_search_results")
+      .select("id:job_id, title, company, location, job_url, job_type, site, date_posted, description, run_at")
+      .eq("schedule_id", scheduleId)
+      .order("run_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
   // ---------- Trigger a new scrape ----------
   // Calls a Supabase Edge Function that holds one GitHub bot token
   // server-side, so signed-in users never need a token of their own.
@@ -451,6 +499,7 @@
         <span class="brand">Besttop Career Intelligence</span>
         ${link("index.html", "Search", "index")}
         ${link("personal.html", "My Saved Jobs", "personal")}
+        ${link("scheduled.html", "Scheduled Searches", "scheduled")}
         ${link("contact.html", "Contact", "contact")}
         <span class="whoami">
           ${user ? `<span class="whoami-name">Hi, <strong>${escapeHtml(user.username)}</strong></span>` : ""}
@@ -478,6 +527,8 @@
     getEmailStatus, updateContactEmail, requestPasswordReset, updatePassword,
     getSavedJobs, saveJobs, removeSavedJob,
     createSearchRun, getSearchRun, listSearchRuns, getSearchResults, pollSearchRun,
+    createScheduledSearch, listScheduledSearches, setScheduledSearchActive,
+    deleteScheduledSearch, getScheduledSearchResults,
     dispatchScrape,
     parseBooleanQuery, buildPredicate, toScraperTerm,
     exportJobsToPdf, renderNav, escapeHtml,

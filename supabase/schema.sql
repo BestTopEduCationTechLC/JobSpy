@@ -116,3 +116,81 @@ $$;
 
 revoke all on function public.get_login_email(text) from public;
 grant execute on function public.get_login_email(text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Recurring (daily/weekly) per-user scrapes. Entirely separate from
+-- saved_jobs and from the one-off search_runs/search_results pair above —
+-- a schedule here is a standing request ("keep searching for X every day
+-- for me"), not a single manual run, and its results live in their own
+-- table (scheduled_search_results) so they never mix with a user's
+-- manually saved jobs list.
+--
+-- Users manage their own schedules directly (create/pause/edit/delete);
+-- scraper/run_scheduled_searches.py (run hourly by
+-- .github/workflows/scheduled-scrapes.yml, via the service role key) is the
+-- only writer of last_run_at/next_run_at/last_status/last_error.
+
+create table if not exists public.scheduled_searches (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  frequency text not null default 'daily', -- 'daily' | 'weekly'
+  search_term text,
+  location text,
+  params jsonb not null default '{}'::jsonb,
+  is_active boolean not null default true,
+  last_status text, -- null | running | completed | failed
+  last_error text,
+  last_run_at timestamptz,
+  next_run_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  constraint scheduled_searches_frequency_check check (frequency in ('daily', 'weekly'))
+);
+
+alter table public.scheduled_searches enable row level security;
+
+create policy "Users can view their own scheduled searches"
+  on public.scheduled_searches for select
+  using (auth.uid() = user_id);
+
+create policy "Users can create their own scheduled searches"
+  on public.scheduled_searches for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own scheduled searches"
+  on public.scheduled_searches for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own scheduled searches"
+  on public.scheduled_searches for delete
+  using (auth.uid() = user_id);
+
+create table if not exists public.scheduled_search_results (
+  id uuid primary key default gen_random_uuid(),
+  schedule_id uuid not null references public.scheduled_searches(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  run_at timestamptz not null default now(),
+  job_id text not null,
+  title text,
+  company text,
+  location text,
+  job_url text,
+  job_type text,
+  site text,
+  date_posted text,
+  description text,
+  unique (schedule_id, run_at, job_id)
+);
+
+alter table public.scheduled_search_results enable row level security;
+
+create policy "Users can view their own scheduled search results"
+  on public.scheduled_search_results for select
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own scheduled search results"
+  on public.scheduled_search_results for delete
+  using (auth.uid() = user_id);
+
+-- No insert/update policy for regular users: results are written only by
+-- scraper/run_scheduled_searches.py via the service role key.
