@@ -16,6 +16,8 @@ from datetime import datetime, timedelta, timezone
 import requests
 from jobspy import scrape_jobs
 
+from scrape_defaults import resolve_country_indeed, resolve_location
+
 FIELDS = [
     "id", "site", "title", "company", "location", "job_url",
     "job_type", "date_posted", "description",
@@ -69,20 +71,17 @@ def run_one(supabase_url: str, headers: dict, schedule: dict) -> None:
     site_names = (params.get("site_names") or "indeed,linkedin,google").split(",")
     hours_old_raw = params.get("hours_old")
     distance_raw = params.get("distance")
+    location = resolve_location(schedule.get("location"))
+    country_indeed = resolve_country_indeed(params.get("country_indeed"), site_names)
 
     jobs = scrape_jobs(
         site_name=site_names,
         search_term=schedule.get("search_term") or "jobs",
-        google_search_term=f"{schedule.get('search_term') or 'jobs'} jobs near {schedule.get('location') or ''}",
-        location=schedule.get("location") or "",
+        google_search_term=f"{schedule.get('search_term') or 'jobs'} jobs near {location}",
+        location=location,
         results_wanted=int(params.get("results_wanted") or 50),
         hours_old=int(hours_old_raw) if hours_old_raw else None,
-        # jobspy.model.Country.from_string() unconditionally calls .strip()
-        # on this with no None-handling, so — unlike job_type/hours_old/
-        # distance below — it can be neither "" nor None. It always needs a
-        # real, valid country name; fall back to the same default the rest
-        # of this project uses (scraper/search_config.json) when blank.
-        country_indeed=params.get("country_indeed") or "singapore",
+        country_indeed=country_indeed,
         job_type=params.get("job_type") or None,
         is_remote=str(params.get("is_remote")).lower() == "true",
         easy_apply=True if str(params.get("easy_apply")).lower() == "true" else None,
