@@ -77,10 +77,12 @@ def run_one(supabase_url: str, headers: dict, schedule: dict) -> None:
         location=schedule.get("location") or "",
         results_wanted=int(params.get("results_wanted") or 50),
         hours_old=int(hours_old_raw) if hours_old_raw else None,
-        # JobSpy validates country_indeed against a fixed list and rejects ""
-        # (unlike location/search_term, which tolerate an empty string) — it
-        # must be None when the user leaves the field blank.
-        country_indeed=params.get("country_indeed") or None,
+        # jobspy.model.Country.from_string() unconditionally calls .strip()
+        # on this with no None-handling, so — unlike job_type/hours_old/
+        # distance below — it can be neither "" nor None. It always needs a
+        # real, valid country name; fall back to the same default the rest
+        # of this project uses (scraper/search_config.json) when blank.
+        country_indeed=params.get("country_indeed") or "singapore",
         job_type=params.get("job_type") or None,
         is_remote=str(params.get("is_remote")).lower() == "true",
         easy_apply=True if str(params.get("easy_apply")).lower() == "true" else None,
