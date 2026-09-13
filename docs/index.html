@@ -28,10 +28,6 @@
       <summary>Advanced parameters (used only when you click "Run New Search")</summary>
       <div class="field-row">
         <div class="field">
-          <label for="countryInput">Country (Indeed/Glassdoor)</label>
-          <input type="text" id="countryInput" placeholder="Singapore" />
-        </div>
-        <div class="field">
           <label for="jobTypeInput">Job type</label>
           <select id="jobTypeInput">
             <option value="">Any</option>
@@ -224,7 +220,6 @@
     const inputs = {
       search_term: scraperTerm,
       location: targetLocation,
-      country_indeed: document.getElementById("countryInput").value.trim(),
       site_names: sites.join(","),
       results_wanted: String(document.getElementById("resultsInput").value || "100"),
       hours_old: String(document.getElementById("hoursOldInput").value || "168"),
