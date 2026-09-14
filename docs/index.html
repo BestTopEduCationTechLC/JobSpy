@@ -75,6 +75,9 @@
     </div>
     <p class="hint" id="authHint" style="display:none;">Sign in (top right) to run a new search or save jobs.</p>
     <p class="hint" id="runStatus" style="display:none;"></p>
+    <div class="scrapeProgress" id="scrapeProgress" style="display:none;">
+      <div class="scrapeProgress-bar"></div>
+    </div>
 
     <div class="toolbar">
       <label class="checkline"><input type="checkbox" id="selectAll" /> Select all shown</label>
@@ -114,10 +117,17 @@
   const exportSelectedBtn = document.getElementById("exportSelectedBtn");
   const runStatusEl = document.getElementById("runStatus");
   const backToAllBtn = document.getElementById("backToAllBtn");
+  const scrapeProgressEl = document.getElementById("scrapeProgress");
 
   function showRunStatus(text) {
     runStatusEl.textContent = text;
     runStatusEl.style.display = text ? "block" : "none";
+  }
+
+  // Progress bar reassuring the user their scrape is running — shown for
+  // the whole pending/running window, hidden once it settles either way.
+  function showScrapeProgress(isRunning) {
+    scrapeProgressEl.style.display = isRunning ? "block" : "none";
   }
 
   backToAllBtn.addEventListener("click", () => {
@@ -126,6 +136,7 @@
     state.jobs = state.sharedJobs;
     backToAllBtn.style.display = "none";
     showRunStatus("");
+    showScrapeProgress(false);
     metaLine.textContent = state.sharedMetaLine || "";
     render();
   });
@@ -244,19 +255,23 @@
       state.viewingPrivate = true;
       backToAllBtn.style.display = "inline-block";
       showRunStatus("Your Search is running ———— Go get a coffee in the mean time! ╰(*°▽°*)╯");
+      showScrapeProgress(true);
       resultsEl.innerHTML = "";
 
       state.stopPolling = App.pollSearchRun(run.id, async (updatedRun, pollError) => {
         if (pollError) {
           showRunStatus(`Search status could not be found (•_•): ${pollError.message}`);
+          showScrapeProgress(false);
           return;
         }
         if (updatedRun.status === "failed") {
           showRunStatus(`Search failed ( ˘︹˘ ): ${updatedRun.error || "unknown error (>ლ)"}`);
+          showScrapeProgress(false);
           return;
         }
         if (updatedRun.status === "completed") {
           showRunStatus("");
+          showScrapeProgress(false);
           try {
             state.jobs = await App.getSearchResults(run.id);
           } catch (err) {
@@ -269,6 +284,7 @@
       }, 8000);
     } catch (err) {
       console.error(err);
+      showScrapeProgress(false);
       alert(`Could not start the scrape (￣ i ￣;) : ${err.message}`);
     } finally {
       btn.disabled = false;
