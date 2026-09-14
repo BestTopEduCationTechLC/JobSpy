@@ -1,0 +1,135 @@
+JobSpy Search — Error Code Reference (DRAFT)
+==============================================
+
+STATUS: This is a planning document only. Per the revision request that
+created it, NONE of these codes are wired into the code yet — no function
+currently throws, logs, or displays any of these. This file exists purely
+so the codes can be reviewed before any implementation work begins.
+
+Format: 4-digit hexadecimal, uppercase, written as a bare code (e.g. 1000).
+The first hex digit groups codes by the area of the app that would raise
+them; the repo was scanned end-to-end (docs/assets/app.js, every scraper/*.py
+script, the trigger-scrape Supabase Edge Function, and the three GitHub
+Actions workflows) to build this list, one code per function/workflow step
+that has a plausible failure case.
+
+Range map
+---------
+1000-1FFF  Auth (docs/assets/app.js)
+2000-2FFF  Saved jobs (docs/assets/app.js)
+3000-3FFF  One-off search runs (docs/assets/app.js)
+4000-4FFF  Scheduled searches (docs/assets/app.js)
+5000-5FFF  Search parsing / PDF export (docs/assets/app.js)
+6000-6FFF  Navigation / shared UI (docs/assets/app.js)
+7000-7FFF  Backend scraper scripts (scraper/*.py)
+8000-8FFF  trigger-scrape Edge Function (supabase/functions/trigger-scrape)
+9000-9FFF  GitHub Actions workflows (.github/workflows/*.yml)
+
+
+1000-1FFF — Auth (docs/assets/app.js)
+--------------------------------------
+1000  getUser() — supabase.auth.getSession() failed (network/Supabase outage).
+1001  sessionToUser() — session.user missing expected shape (malformed session object).
+1002  normalizeUsername() — non-string input coerced unexpectedly (defensive; input wasn't a string/undefined).
+1003  validateUsername() — username fails USERNAME_RE (bad length or disallowed characters).
+1004  validatePassword() — password shorter than the 6-character minimum.
+1005  signUp() — supabase.auth.signUp() returned an error (Supabase/network failure).
+1006  signUp() — email already registered (data.user.identities.length === 0, the silent-duplicate case).
+1007  signUp() — email failed EMAIL_RE validation.
+1008  signIn() — get_login_email RPC call itself errored (RPC not deployed / not granted to anon).
+1009  signIn() — get_login_email RPC returned null (no account for that username).
+100A  signIn() — supabase.auth.signInWithPassword() returned "Invalid login credentials".
+100B  signIn() — supabase.auth.signInWithPassword() returned an unconfirmed-email error.
+100C  requestPasswordReset() — supabase.auth.resetPasswordForEmail() returned an error.
+100D  updatePassword() — supabase.auth.updateUser({password}) returned an error.
+100E  getEmailStatus() — supabase.auth.getUser() failed while reading current/pending email.
+100F  updateContactEmail() — new address failed EMAIL_RE validation.
+1010  updateContactEmail() — supabase.auth.updateUser({email}) returned an error.
+
+2000-2FFF — Saved jobs (docs/assets/app.js)
+---------------------------------------------
+2000  getSavedJobs() — select from saved_jobs failed (RLS/network).
+2001  saveJobs() — upsert into saved_jobs failed (bad row shape, constraint violation, network).
+2002  removeSavedJob() — delete from saved_jobs failed.
+
+3000-3FFF — One-off search runs (docs/assets/app.js)
+-------------------------------------------------------
+3000  createSearchRun() — insert into search_runs failed.
+3001  getSearchRun() — select of a single search_runs row failed or returned nothing (bad run_id / RLS denial).
+3002  listSearchRuns() — select of the caller's search_runs history failed.
+3003  getSearchResults() — select from search_results for a run_id failed.
+3004  pollSearchRun() — a poll tick's getSearchRun() call threw (surfaced via the onUpdate(null, err) path).
+3005  dispatchScrape() — trigger-scrape Edge Function invocation failed or returned data.error.
+
+4000-4FFF — Scheduled searches (docs/assets/app.js)
+------------------------------------------------------
+4000  createScheduledSearch() — insert into scheduled_searches failed.
+4001  listScheduledSearches() — select of the caller's schedules failed.
+4002  setScheduledSearchActive() — update of is_active failed (bad schedule id / RLS denial).
+4003  deleteScheduledSearch() — delete of a scheduled_searches row failed.
+4004  getScheduledSearchResults() — select from scheduled_search_results for a schedule_id failed.
+
+5000-5FFF — Search parsing / PDF export (docs/assets/app.js)
+-----------------------------------------------------------------
+5000  tokenize() — unbalanced quotes in the search string (defensive; regex still matches, but result may mis-tokenize).
+5001  parseBooleanQuery() — malformed boolean expression (e.g. dangling AND/OR/NOT, unmatched parenthesis).
+5002  buildPredicate() — predicate evaluation threw on an unexpected job field shape.
+5003  toScraperTerm() — produced an empty term after stripping operators (falls back to "jobs" — logged here only as a notable case, not a failure).
+5004  exportJobsToPdf() — jsPDF library failed to load (global.jspdf.jsPDF missing).
+5005  exportJobsToPdf() — PDF generation threw mid-document (e.g. pathological description text).
+
+6000-6FFF — Navigation / shared UI (docs/assets/app.js)
+------------------------------------------------------------
+6000  renderNav() — #topnav container missing from the page (bad page markup).
+6001  goToLogin() — redirect target could not be constructed (malformed location.pathname).
+6002  escapeHtml() — non-string, non-null input passed in (defensive coercion case).
+
+7000-7FFF — Backend scraper scripts (scraper/*.py)
+-------------------------------------------------------
+7000  csv_to_json.main() — jobs.csv missing an expected column (schema drift from JOBSCRAPPER.ipynb).
+7001  csv_to_json.main() — search_config.json missing or malformed.
+7002  csv_to_json.main() — json.dump() would emit NaN (allow_nan=False catches this loudly by design).
+7003  mark_run_failed.main() — PATCH to search_runs failed (bad SUPABASE_URL/key, network, RLS).
+7004  upload_results.main() — jobs.csv missing an expected column.
+7005  upload_results.main() — POST to search_results failed (service-role key rejected, malformed rows).
+7006  upload_results.main() — PATCH marking the run "completed" failed.
+7007  run_scheduled_searches.fetch_due_schedules() — GET to scheduled_searches failed (bad service-role key, network).
+7008  run_scheduled_searches.run_one() — jobspy.scrape_jobs() itself raised (bad country_indeed, site error, network) — this is exactly the class of bug already hit twice in production (empty-string and None country_indeed).
+7009  run_scheduled_searches.run_one() — POST to scheduled_search_results failed (constraint violation, network).
+700A  run_scheduled_searches.mark_status() — PATCH to scheduled_searches failed — including the nested "also failed to record the failure" case.
+700B  scrape_defaults.resolve_country_indeed() — resolved value still rejected by jobspy.model.Country.from_string() (unknown country name slipped through).
+
+8000-8FFF — trigger-scrape Edge Function (supabase/functions/trigger-scrape)
+----------------------------------------------------------------------------------
+8000  GITHUB_BOT_TOKEN not set on the function (server misconfiguration, 500).
+8001  Caller has no valid Supabase session (401 "Not signed in").
+8002  Caller's username not in ALLOWED_USERNAMES, when that allowlist is set (403).
+8003  Request body missing run_id (400).
+8004  run_id does not resolve to a row the caller owns under RLS (403 "Unknown or inaccessible run_id").
+8005  GitHub's workflow_dispatch API call itself returned a non-OK response (502, bad ref/inputs, bot token revoked).
+
+9000-9FFF — GitHub Actions workflows (.github/workflows/*.yml)
+---------------------------------------------------------------------
+9000  scrape-jobs.yml — "Install dependencies" step failed (pip install ./jobspy broke).
+9001  scrape-jobs.yml — "Update search config from manual trigger" step's inline Python failed (malformed search_config.json).
+9002  scrape-jobs.yml — "Run scraper notebook" step failed (jupyter nbconvert execution error — e.g. JOBSCRAPPER.ipynb raising inside a cell).
+9003  scrape-jobs.yml — "Upload private results to Supabase" step failed (see 7005/7006).
+9004  scrape-jobs.yml — "Convert results to JSON for the shared frontend view" step failed (see 7000-7002).
+9005  scrape-jobs.yml — "Commit and push updated shared data" step failed (git push rejected — someone else pushed to TESTING first).
+9006  scrape-jobs.yml — "Mark run failed" step itself failed (double failure — see 7003).
+9007  scheduled-scrapes.yml — "Run due scheduled searches" step failed outright (uncaught exception in run_scheduled_searches.main() itself, outside the per-schedule try/except).
+9008  publish-to-pypi.yml — package build or PyPI upload step failed.
+
+
+Notes for whoever implements this later
+----------------------------------------
+- These are proposed, not final — several ranges (1xxx and 7xxx especially)
+  have room for the more specific sub-cases already known from real incidents
+  (e.g. the country_indeed "" vs None vs valid-string distinction under 7008).
+- Recommend surfacing the code alongside the existing human-readable message
+  rather than replacing it (e.g. "[7008] Search failed: Invalid country
+  string: ''"), and logging it into the existing error_logs-style pattern if
+  that feature is reintroduced.
+- No code here should be treated as stable/frozen until implementation
+  actually begins — this file is the "what could this even mean" draft asked
+  for, not a spec.
