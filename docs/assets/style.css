@@ -307,32 +307,6 @@ details.advanced[open] summary { border-bottom: 1px solid var(--border); margin-
 
 .hint { color: var(--muted); font-size: 0.79rem; margin: 4px 0 16px; line-height: 1.55; }
 
-.modal-backdrop {
-  position: fixed; inset: 0;
-  background: rgba(10, 12, 20, 0.55);
-  backdrop-filter: blur(2px);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 50;
-  padding: 20px;
-  animation: jsFadeIn 0.15s ease;
-}
-.modal {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 28px;
-  max-width: 420px;
-  width: 100%;
-  box-shadow: var(--shadow-lg);
-  animation: jsPopIn 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-}
-.modal h2 { margin-top: 0; }
-.modal .field { margin-bottom: 14px; }
-.modal .actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-
-@keyframes jsFadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes jsPopIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
-
 footer {
   color: var(--muted);
   font-size: 0.78rem;
