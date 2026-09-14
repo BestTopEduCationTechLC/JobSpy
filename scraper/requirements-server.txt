@@ -1,6 +1,0 @@
-# Extra dependencies for scraper/server.py (the Railway-hosted on-demand
-# scrape webhook), on top of the jobspy package itself — installed
-# separately from pyproject.toml so that file stays exactly what's
-# published to PyPI as python-jobspy, undisturbed by web-server deps.
-flask>=3.0.0,<4.0.0
-gunicorn>=22.0.0,<23.0.0
