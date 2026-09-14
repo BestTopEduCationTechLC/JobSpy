@@ -1,47 +1,25 @@
 :root {
-  /* [Revision: 9-color palette, applied identically on every page since
-     they all share this one stylesheet.]
-     --color-1..5 -> body / top nav / listing (job cards), one fixed scheme:
-       color-1 #388bff -> page background
-       color-2 #AC38FF -> top nav background
-       color-3 #FFAC38 -> job/listing card background (and .card sections)
-       color-4 #8BFF38 -> listing/card strong border
-       color-5 #59E3CC -> accent (links, primary buttons, active nav underline)
-     --color-6..9 -> assigned once each to a semantic role, then used
-     consistently everywhere that role appears (never re-picked per page):
-       color-6 #59B5E3 -> success
-       color-7 #5970E3 -> highlight (checkbox accent-color)
-       color-8 #E35970 -> danger
-       color-9 #E3CC59 -> warning
-     Text stays fixed at #110d35e4 regardless of what sits behind it. */
-  --color-1: #388bff;
-  --color-2: #ac38ff;
-  --color-3: #ffac38;
-  --color-4: #8bff38;
-  --color-5: #59e3cc;
-  --color-6: #59b5e3;
-  --color-7: #5970e3;
-  --color-8: #e35970;
-  --color-9: #e3cc59;
-
-  --bg: var(--color-1);
-  --bg-subtle: color-mix(in srgb, var(--color-1) 30%, white);
-  --topnav-bg: var(--color-2);
-  --card: var(--color-3);
-  --border: color-mix(in srgb, var(--color-4) 55%, white);
-  --border-strong: var(--color-4);
-  --text: #110d35e4;
-  --muted: rgba(17, 13, 53, 0.62);
-  --accent: var(--color-5);
-  --accent-hover: color-mix(in srgb, var(--color-5) 78%, black);
-  --accent-soft: color-mix(in srgb, var(--color-5) 22%, white);
-  --accent-text: var(--text);
-  --danger: var(--color-8);
-  --danger-soft: color-mix(in srgb, var(--color-8) 20%, white);
-  --success: var(--color-6);
-  --warning: var(--color-9);
-  --warning-text: var(--text);
-  --highlight: var(--color-7);
+  /* Palette: #F9748F (coral-pink), #05B0AD (teal), #5F58D6 (indigo),
+     #D1AF4C (gold), #AEDF30 (lime) — vivid accents on neutral surfaces
+     so large areas (bg/text/borders) stay readable. */
+  --bg: #f7f8fa;
+  --bg-subtle: #eef0f4;
+  --topnav-bg: var(--bg);
+  --card: #ffffff;
+  --border: #e3e6ec;
+  --border-strong: #c9cedb;
+  --text: #1a1d29;
+  --muted: #666c7e;
+  --accent: #5f58d6;
+  --accent-hover: #4a43c0;
+  --accent-soft: #ecebfb;
+  --accent-text: #ffffff;
+  --danger: #f9748f;
+  --danger-soft: #fde9ed;
+  --success: #05b0ad;
+  --warning: #d1af4c;
+  --warning-text: #1a1d29;
+  --highlight: #aedf30;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
@@ -50,9 +28,32 @@
   --shadow-lg: 0 24px 60px -20px rgba(20, 24, 45, 0.28), 0 8px 24px -8px rgba(20, 24, 45, 0.12);
   --ring: 0 0 0 3px var(--accent-soft);
 }
-/* [Revision: this replaces the previous light/dark palettes with one fixed
-   9-color scheme, so the prefers-color-scheme dark override is intentionally
-   removed — every page now renders the same colors regardless of OS theme.] */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161f;
+    --bg-subtle: #1a1d29;
+    --topnav-bg: var(--bg);
+    --card: #1e2130;
+    --border: #2b2f3f;
+    --border-strong: #3d4256;
+    --text: #f1f2f6;
+    --muted: #9498a8;
+    --accent: #7a73e8;
+    --accent-hover: #8f89ef;
+    --accent-soft: rgba(122, 115, 232, 0.18);
+    --accent-text: #ffffff;
+    --danger: #ff8fa3;
+    --danger-soft: rgba(255, 143, 163, 0.16);
+    --success: #2dd4ce;
+    --warning: #e4c168;
+    --warning-text: #14161f;
+    --highlight: #c3ee55;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 12px 32px -14px rgba(0, 0, 0, 0.55), 0 2px 10px -2px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 30px 70px -24px rgba(0, 0, 0, 0.65), 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    --ring: 0 0 0 3px var(--accent-soft);
+  }
+}
 
 * { box-sizing: border-box; }
 ::selection { background: var(--accent); color: var(--accent-text); }
