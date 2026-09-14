@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -e . && pip install -r scraper/requirements-server.txt"
+  },
+  "deploy": {
+    "startCommand": "gunicorn --chdir scraper --bind 0.0.0.0:$PORT --workers 2 --timeout 120 server:app",
+    "healthcheckPath": "/healthz",
+    "healthcheckTimeout": 30,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

@@ -1,18 +1,20 @@
-// Supabase Edge Function: dispatches the scrape-jobs.yml GitHub Actions workflow
-// using one bot token held only here (as a function secret) — signed-in users
-// never see or need a token of their own.
+// Supabase Edge Function: dispatches an on-demand scrape to the Railway-
+// hosted scraper service (scraper/server.py) — signed-in users never see
+// or need a token/secret of their own.
 //
 // Deploy: supabase functions deploy trigger-scrape
-// Secrets: supabase secrets set GITHUB_BOT_TOKEN=... [ALLOWED_USERNAMES=...]
+// Secrets: supabase secrets set SCRAPER_URL=... SCRAPER_WEBHOOK_SECRET=... [ALLOWED_USERNAMES=...]
+//
+// Fallback: the private-run path in .github/workflows/scrape-jobs.yml
+// (workflow_dispatch) still exists and can be triggered manually from the
+// Actions tab if this Railway service is ever down — it is no longer
+// called automatically from here.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const GH_OWNER = Deno.env.get("GH_OWNER") ?? "BestTopEduCationTechLC";
-const GH_REPO = Deno.env.get("GH_REPO") ?? "JobSpy";
-const GH_WORKFLOW = Deno.env.get("GH_WORKFLOW") ?? "scrape-jobs.yml";
-const GH_REF = Deno.env.get("GH_REF") ?? "TESTING";
+const SCRAPER_URL = Deno.env.get("SCRAPER_URL"); // e.g. https://your-service.up.railway.app/scrape
+const SCRAPER_WEBHOOK_SECRET = Deno.env.get("SCRAPER_WEBHOOK_SECRET");
 
-const GITHUB_BOT_TOKEN = Deno.env.get("GITHUB_BOT_TOKEN");
 // Usernames here refer to this app's own login (Supabase email/password),
 // not GitHub accounts — see docs/assets/app.js's usernameToEmail().
 const ALLOWED_USERNAMES = (Deno.env.get("ALLOWED_USERNAMES") ?? "")
@@ -31,8 +33,8 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!GITHUB_BOT_TOKEN) {
-    return json({ error: "Server misconfigured: GITHUB_BOT_TOKEN not set" }, 500);
+  if (!SCRAPER_URL || !SCRAPER_WEBHOOK_SECRET) {
+    return json({ error: "Server misconfigured: SCRAPER_URL/SCRAPER_WEBHOOK_SECRET not set" }, 500);
   }
 
   // Identify the caller from the Authorization header Supabase's client
@@ -77,22 +79,18 @@ Deno.serve(async (req) => {
     return json({ error: "Unknown or inaccessible run_id" }, 403);
   }
 
-  const ghRes = await fetch(
-    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GITHUB_BOT_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      body: JSON.stringify({ ref: GH_REF, inputs: { ...inputs, run_id: runId } }),
-    }
-  );
+  const scraperRes = await fetch(SCRAPER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Webhook-Secret": SCRAPER_WEBHOOK_SECRET,
+    },
+    body: JSON.stringify({ run_id: runId, inputs }),
+  });
 
-  if (!ghRes.ok) {
-    const text = await ghRes.text().catch(() => "");
-    return json({ error: `GitHub API error ${ghRes.status}: ${text}` }, 502);
+  if (!scraperRes.ok) {
+    const text = await scraperRes.text().catch(() => "");
+    return json({ error: `Scraper service error ${scraperRes.status}: ${text}` }, 502);
   }
 
   return json({ ok: true });

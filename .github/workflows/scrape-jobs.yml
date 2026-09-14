@@ -1,5 +1,15 @@
 name: Scrape jobs for GitHub Pages
 
+# NOTE on the workflow_dispatch (run_id-carrying) path below: on-demand,
+# per-user "Run New Search" scrapes now run on the Railway-hosted
+# scraper/server.py (triggered by the trigger-scrape Supabase Edge
+# Function) instead of here. This workflow_dispatch trigger is kept in
+# place, unchanged, as a manual fallback — re-point the Edge Function's
+# SCRAPER_URL/SCRAPER_WEBHOOK_SECRET secrets back to a GitHub dispatch call
+# (see supabase/functions/trigger-scrape/index.ts's git history) if the
+# Railway service is ever down and this needs to take over again. The
+# weekly schedule trigger below (the shared docs/data/jobs.json scrape)
+# is unaffected and still runs here.
 on:
   schedule:
     # Every Monday at 06:00 UTC
