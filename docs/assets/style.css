@@ -4,7 +4,6 @@
      so large areas (bg/text/borders) stay readable. */
   --bg: #f7f8fa;
   --bg-subtle: #eef0f4;
-  --topnav-bg: var(--bg);
   --card: #ffffff;
   --border: #e3e6ec;
   --border-strong: #c9cedb;
@@ -32,7 +31,6 @@
   :root {
     --bg: #14161f;
     --bg-subtle: #1a1d29;
-    --topnav-bg: var(--bg);
     --card: #1e2130;
     --border: #2b2f3f;
     --border-strong: #3d4256;
@@ -106,7 +104,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   position: sticky;
   top: 0;
   z-index: 40;
-  background: color-mix(in srgb, var(--topnav-bg) 90%, transparent);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -308,28 +306,6 @@ details.advanced[open] summary::before { transform: rotate(90deg); }
 details.advanced[open] summary { border-bottom: 1px solid var(--border); margin-bottom: 12px; }
 
 .hint { color: var(--muted); font-size: 0.79rem; margin: 4px 0 16px; line-height: 1.55; }
-
-/* [Revision: scrape progress bar under docs/index.html's "Run New Search" —
-   fixed colors as specified, not tied to the palette tokens above.] */
-.scrapeProgress {
-  height: 8px;
-  border: 1px solid #c689f1;
-  border-radius: 999px;
-  overflow: hidden;
-  background: transparent;
-  margin: 4px 0 18px;
-}
-.scrapeProgress-bar {
-  height: 100%;
-  width: 35%;
-  border-radius: 999px;
-  background: #ac38ff;
-  animation: scrapeProgressSlide 1.1s ease-in-out infinite;
-}
-@keyframes scrapeProgressSlide {
-  0% { margin-left: -35%; }
-  100% { margin-left: 100%; }
-}
 
 footer {
   color: var(--muted);
