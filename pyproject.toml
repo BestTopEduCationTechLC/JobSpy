@@ -31,3 +31,12 @@ regex = "^2024.4.28"
 jupyter = "^1.0.0"
 black = "*"
 pre-commit = "*"
+
+# Only for scraper/server.py, the Railway-hosted on-demand scrape webhook.
+# A separate group (not installed by a plain `poetry install`, and never
+# included in the python-jobspy wheel published to PyPI) so the published
+# package's own dependency list stays untouched — Railway's build command
+# opts into it explicitly with `poetry install --with server`.
+[tool.poetry.group.server.dependencies]
+flask = "^3.0.0"
+gunicorn = "^22.0.0"
