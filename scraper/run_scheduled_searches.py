@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 from jobspy import scrape_jobs
 
-from scrape_defaults import resolve_country_indeed, resolve_location
+from scrape_defaults import resolve_country_indeed, resolve_distance, resolve_location
 
 FIELDS = [
     "id", "site", "title", "company", "location", "job_url",
@@ -70,7 +70,7 @@ def run_one(supabase_url: str, headers: dict, schedule: dict) -> None:
 
     site_names = (params.get("site_names") or "indeed,linkedin,google").split(",")
     hours_old_raw = params.get("hours_old")
-    distance_raw = params.get("distance")
+    distance = resolve_distance(params.get("distance"))
     location = resolve_location(schedule.get("location"))
     country_indeed = resolve_country_indeed(params.get("country_indeed"), site_names)
 
@@ -85,7 +85,7 @@ def run_one(supabase_url: str, headers: dict, schedule: dict) -> None:
         job_type=params.get("job_type") or None,
         is_remote=str(params.get("is_remote")).lower() == "true",
         easy_apply=True if str(params.get("easy_apply")).lower() == "true" else None,
-        distance=int(distance_raw) if distance_raw else None,
+        distance=distance,
     )
 
     df = jobs

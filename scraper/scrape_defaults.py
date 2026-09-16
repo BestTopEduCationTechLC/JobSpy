@@ -6,6 +6,13 @@ blank field is treated the same way everywhere the scraper runs.
 DEFAULT_LOCATION = "Singapore"
 DEFAULT_COUNTRY_INDEED = "singapore"
 
+# The widest radius accepted across the sites that use jobspy's `distance`
+# param (Indeed, LinkedIn, ZipRecruiter each treat it as a search-radius
+# filter in miles) — used whenever the caller doesn't specify one, so every
+# scrape casts the widest possible net by default instead of an arbitrary
+# 50-mile default.
+DEFAULT_DISTANCE = 100
+
 # Of all the sites JobSpy supports, only Indeed and Glassdoor actually build
 # their request around scraper_input.country: Indeed uses it to pick a
 # country-specific subdomain, and Glassdoor uses it to pick a
@@ -35,3 +42,13 @@ def resolve_country_indeed(country_indeed, site_names) -> str:
     if sites & SITES_REQUIRING_COUNTRY:
         return country_indeed or DEFAULT_COUNTRY_INDEED
     return country_indeed or "worldwide"
+
+
+def resolve_distance(distance) -> int:
+    """A blank/zero distance always becomes the maximum radius — there's no
+    distance box in the UI anymore, so this is the only place it's set."""
+    try:
+        value = int(distance)
+    except (TypeError, ValueError):
+        return DEFAULT_DISTANCE
+    return value if value > 0 else DEFAULT_DISTANCE

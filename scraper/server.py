@@ -36,7 +36,7 @@ from jobspy import scrape_jobs
 # Make sure scrape_defaults resolves regardless of how this module is
 # loaded (plain `python server.py`, or gunicorn with/without --chdir).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scrape_defaults import resolve_country_indeed, resolve_location  # noqa: E402
+from scrape_defaults import resolve_country_indeed, resolve_distance, resolve_location  # noqa: E402
 
 FIELDS = [
     "id", "site", "title", "company", "location", "job_url",
@@ -72,7 +72,7 @@ def run_scrape(run_id: str, inputs: dict) -> None:
     try:
         site_names = (inputs.get("site_names") or "indeed,linkedin,google").split(",")
         hours_old_raw = inputs.get("hours_old")
-        distance_raw = inputs.get("distance")
+        distance = resolve_distance(inputs.get("distance"))
         location = resolve_location(inputs.get("location"))
         country_indeed = resolve_country_indeed(inputs.get("country_indeed"), site_names)
         search_term = inputs.get("search_term") or "jobs"
@@ -88,7 +88,7 @@ def run_scrape(run_id: str, inputs: dict) -> None:
             job_type=inputs.get("job_type") or None,
             is_remote=str(inputs.get("is_remote")).lower() == "true",
             easy_apply=True if str(inputs.get("easy_apply")).lower() == "true" else None,
-            distance=int(distance_raw) if distance_raw else None,
+            distance=distance,
         )
 
         df = jobs
