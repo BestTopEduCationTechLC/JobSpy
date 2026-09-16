@@ -60,9 +60,9 @@
   const App = window.JobSpyApp;
   const user = await App.renderNav("personal");
   const name = user ? user.username : "Guest";
-  document.title = `${name} personal interface test`;
+  document.title = `${name} Job History `;
   document.getElementById("pageTitle").innerHTML =
-    `${App.escapeHtml(name)} personal interface test<span class="count-badge" id="countBadge">0</span>`;
+    `${App.escapeHtml(name)} Job History <span class="count-badge" id="countBadge">0</span>`;
 
   const state = { jobs: [], selected: new Set() };
   const resultsEl = document.getElementById("results");
