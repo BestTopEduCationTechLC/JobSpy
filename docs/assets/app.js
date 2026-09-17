@@ -503,7 +503,7 @@
         ${link("contact.html", "Contact", "contact")}
         <span class="whoami">
           ${user ? `<span class="whoami-name">Hi, <strong>${escapeHtml(user.username)}</strong></span>` : ""}
-          <button type="button" id="navAuthBtn" class="${user ? "" : "signin"}">${user ? "Sign out" : "Sign in"}</button>
+          <button type="button" id="navAuthBtn" class="${user ? "" : "signin"}">${user ? "Sign out" : "Sign Up/Sign In"}</button>
         </span>
       </div>`;
     const btn = document.getElementById("navAuthBtn");
