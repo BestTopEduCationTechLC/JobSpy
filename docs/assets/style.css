@@ -358,3 +358,25 @@ footer a:hover { color: var(--accent); }
   margin-bottom: 18px;
   box-shadow: var(--shadow-sm);
 }
+
+/* Legal-disclaimer gate shown before sign-up completes (login.html) —
+   full-screen, no close button; a Yes/No checkbox choice is required. */
+.legalModal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+.legalModal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 22px;
+  max-width: 420px;
+  width: 100%;
+}

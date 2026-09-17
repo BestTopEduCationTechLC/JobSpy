@@ -51,6 +51,23 @@
     </div>
   </div>
 
+  <div class="legalModal-backdrop" id="legalModalBackdrop" style="display:none;">
+    <div class="legalModal" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle">
+      <h2 id="legalModalTitle" style="margin-top:0;">Legal Disclaimer</h2>
+      <p class="hint" style="margin:0 0 14px;">
+        This section is reserved for a legal disclaimer, to be added later — see
+        <a href="contact.html">Contact</a> for the full data-policy disclaimer.
+        You must agree before an account can be created.
+      </p>
+      <label class="checkline" style="display:block; margin-bottom: 8px;">
+        <input type="checkbox" id="legalYesCheck" /> Yes, I agree — create my account
+      </label>
+      <label class="checkline" style="display:block;">
+        <input type="checkbox" id="legalNoCheck" /> No, I do not agree — take me back
+      </label>
+    </div>
+  </div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/app.js"></script>
 <script>
@@ -98,6 +115,37 @@
   const errorEl = document.getElementById("authError");
   const submitBtn = document.getElementById("authSubmitBtn");
   const toggleBtn = document.getElementById("authToggleBtn");
+  const legalModalBackdrop = document.getElementById("legalModalBackdrop");
+  const legalYesCheck = document.getElementById("legalYesCheck");
+  const legalNoCheck = document.getElementById("legalNoCheck");
+
+  // Shown once, right when switching into "Create account" mode — the user
+  // must pick Yes or No before doing anything else on the page. Yes closes
+  // the modal and lets the signup form (already rendered behind it) be
+  // used; No leaves the account uncreated and sends them back to Search.
+  function showLegalDisclaimer() {
+    legalYesCheck.checked = false;
+    legalNoCheck.checked = false;
+    legalModalBackdrop.style.display = "flex";
+  }
+
+  function hideLegalDisclaimer() {
+    legalModalBackdrop.style.display = "none";
+  }
+
+  legalYesCheck.addEventListener("change", () => {
+    if (legalYesCheck.checked) {
+      legalNoCheck.checked = false;
+      hideLegalDisclaimer();
+    }
+  });
+
+  legalNoCheck.addEventListener("change", () => {
+    if (legalNoCheck.checked) {
+      legalYesCheck.checked = false;
+      location.href = "index.html";
+    }
+  });
 
   // Only sign-up sets a brand-new password (sign-in checks an existing one,
   // which may predate these rules — see app.js's validatePassword), so the
@@ -128,8 +176,10 @@
   }
 
   toggleBtn.addEventListener("click", () => {
+    const enteringSignup = mode !== "signup";
     mode = mode === "signup" ? "signin" : "signup";
     applyMode();
+    if (enteringSignup) showLegalDisclaimer();
   });
 
   forgotBtn.addEventListener("click", () => {
@@ -140,6 +190,10 @@
   submitBtn.addEventListener("click", async () => {
     errorEl.style.display = "none";
     infoEl.style.display = "none";
+    if (mode === "signup" && !legalYesCheck.checked) {
+      showLegalDisclaimer();
+      return;
+    }
     submitBtn.disabled = true;
     try {
       if (mode === "signin") {
