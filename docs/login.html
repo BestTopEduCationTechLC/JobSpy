@@ -37,6 +37,7 @@
         <label for="authPassword">Password</label>
         <input type="password" id="authPassword" autocomplete="current-password" />
       </div>
+      <ul class="pwRules" id="authPasswordRules" style="display:none;"></ul>
 
       <p class="hint" id="authForgotWrap" style="margin: 0 0 14px;">
         <button type="button" id="authForgotBtn">Forgot password?</button>
@@ -90,12 +91,26 @@
   const emailEl = document.getElementById("authEmail");
   const passwordField = document.getElementById("authPasswordField");
   const passwordEl = document.getElementById("authPassword");
+  const passwordRulesEl = document.getElementById("authPasswordRules");
   const forgotWrap = document.getElementById("authForgotWrap");
   const forgotBtn = document.getElementById("authForgotBtn");
   const infoEl = document.getElementById("authInfo");
   const errorEl = document.getElementById("authError");
   const submitBtn = document.getElementById("authSubmitBtn");
   const toggleBtn = document.getElementById("authToggleBtn");
+
+  // Only sign-up sets a brand-new password (sign-in checks an existing one,
+  // which may predate these rules — see app.js's validatePassword), so the
+  // checklist and "new-password" autocomplete hint only apply in that mode.
+  function renderPasswordRules() {
+    passwordRulesEl.innerHTML = App.checkPasswordRules(passwordEl.value)
+      .map((rule) => `<li class="${rule.met ? "met" : ""}">${App.escapeHtml(rule.label)}</li>`)
+      .join("");
+  }
+
+  passwordEl.addEventListener("input", () => {
+    if (mode === "signup") renderPasswordRules();
+  });
 
   function applyMode() {
     title.textContent = { signin: "Sign in", signup: "Create account", reset: "Reset password" }[mode];
@@ -104,6 +119,9 @@
     toggleBtn.style.display = mode === "reset" ? "none" : "block";
     emailField.style.display = mode === "signup" ? "block" : "none";
     passwordField.style.display = mode === "reset" ? "none" : "block";
+    passwordEl.autocomplete = mode === "signup" ? "new-password" : "current-password";
+    passwordRulesEl.style.display = mode === "signup" ? "block" : "none";
+    if (mode === "signup") renderPasswordRules();
     forgotWrap.style.display = mode === "signin" ? "block" : "none";
     errorEl.style.display = "none";
     infoEl.style.display = "none";

@@ -48,15 +48,40 @@
     return null;
   }
 
+  // Used at sign-in only: just enough to give a clear inline error for an
+  // empty submission instead of a confusing round-trip to Supabase. Sign-in
+  // deliberately never re-checks an existing password against the rules
+  // below — an account created before PASSWORD_RULES existed (or before a
+  // rule was added) must keep working with the password it already has.
   function validatePassword(password) {
-    if (!password || password.length < 6) {
-      return "Password must be at least 6 characters.";
+    if (!password) return "Enter your password.";
+    return null;
+  }
+
+  // The rules enforced whenever a password is being *set* (sign-up, or
+  // choosing a new one from a reset link) — shown to the user as a live
+  // checklist (see login.html / reset-password.html) and enforced here so
+  // the same rules apply regardless of whether the user reads the checklist.
+  const PASSWORD_RULES = [
+    { key: "length", label: "At least 10 characters", test: (p) => p.length >= 10 },
+    { key: "uppercase", label: "At least one uppercase letter (A-Z)", test: (p) => /[A-Z]/.test(p) },
+    { key: "lowercase", label: "At least one lowercase letter (a-z)", test: (p) => /[a-z]/.test(p) },
+  ];
+
+  function checkPasswordRules(password) {
+    const pw = String(password || "");
+    return PASSWORD_RULES.map((rule) => ({ key: rule.key, label: rule.label, met: rule.test(pw) }));
+  }
+
+  function validateNewPassword(password) {
+    if (checkPasswordRules(password).some((rule) => !rule.met)) {
+      return "Password does not meet all the requirements listed below.";
     }
     return null;
   }
 
   async function signUp(username, email, password) {
-    const err = validateUsername(username) || validatePassword(password);
+    const err = validateUsername(username) || validateNewPassword(password);
     if (err) throw new Error(err);
     const trimmedEmail = String(email || "").trim();
     if (!EMAIL_RE.test(trimmedEmail)) throw new Error("Enter a valid email address.");
@@ -141,7 +166,7 @@
   }
 
   async function updatePassword(newPassword) {
-    const err = validatePassword(newPassword);
+    const err = validateNewPassword(newPassword);
     if (err) throw new Error(err);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw new Error(error.message);
@@ -524,6 +549,7 @@
 
   global.JobSpyApp = {
     supabase, getUser, signUp, signIn, logout, goToLogin,
+    PASSWORD_RULES, checkPasswordRules, validateNewPassword,
     getEmailStatus, updateContactEmail, requestPasswordReset, updatePassword,
     getSavedJobs, saveJobs, removeSavedJob,
     createSearchRun, getSearchRun, listSearchRuns, getSearchResults, pollSearchRun,

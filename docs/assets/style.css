@@ -307,6 +307,15 @@ details.advanced[open] summary { border-bottom: 1px solid var(--border); margin-
 
 .hint { color: var(--muted); font-size: 0.79rem; margin: 4px 0 16px; line-height: 1.55; }
 
+/* Live password-requirements checklist shown under a new-password field
+   (login.html sign-up, reset-password.html) — one line per PASSWORD_RULES
+   entry in docs/assets/app.js, toggled between unmet/met as the user types. */
+.pwRules { list-style: none; margin: -6px 0 14px; padding: 0; font-size: 0.79rem; }
+.pwRules li { display: flex; align-items: center; gap: 7px; padding: 2px 0; color: var(--muted); }
+.pwRules li::before { content: "\2717"; color: var(--danger); font-weight: 700; width: 1em; text-align: center; }
+.pwRules li.met { color: var(--success); }
+.pwRules li.met::before { content: "\2713"; color: var(--success); }
+
 /* Scrape progress bar under docs/index.html's "Run New Search" — fixed
    colors as specified, not tied to the theme palette above. */
 .scrapeProgress {
