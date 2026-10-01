@@ -336,8 +336,24 @@
   // server-side, so signed-in users never need a token of their own.
   async function dispatchScrape(inputs, runId) {
     const { data, error } = await supabase.functions.invoke("trigger-scrape", { body: { inputs, run_id: runId } });
-    if (error) throw new Error(error.message || "Failed to trigger scrape");
+    if (error) throw new Error(await functionErrorMessage(error));
     if (data && data.error) throw new Error(data.error);
+  }
+
+  // supabase-js's FunctionsHttpError.message is always the generic "Edge
+  // Function returned a non-2xx status code" — the actual reason (from this
+  // function's own json({error: ...}) responses) is in error.context, the
+  // raw Response, and has to be read back out explicitly.
+  async function functionErrorMessage(error) {
+    const fallback = error.message || "Failed to trigger scrape";
+    const context = error.context;
+    if (!context || typeof context.json !== "function") return fallback;
+    try {
+      const body = await context.json();
+      return (body && body.error) || fallback;
+    } catch (_e) {
+      return fallback;
+    }
   }
 
   // ---------- Boolean search parsing (AND / OR / NOT) ----------

@@ -79,14 +79,29 @@ Deno.serve(async (req) => {
     return json({ error: "Unknown or inaccessible run_id" }, 403);
   }
 
-  const scraperRes = await fetch(SCRAPER_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Webhook-Secret": SCRAPER_WEBHOOK_SECRET,
-    },
-    body: JSON.stringify({ run_id: runId, inputs }),
-  });
+  // Railway being down, unreachable, or slow to respond must never surface
+  // as an uncaught exception here — an uncaught throw skips the json()
+  // helper entirely, so the caller gets Deno's own generic error response
+  // instead of a real message (this is what supabase-js reports as the
+  // unhelpful "Edge Function returned a non-2xx status code").
+  let scraperRes: Response;
+  try {
+    const timeout = AbortSignal.timeout(10000);
+    scraperRes = await fetch(SCRAPER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Webhook-Secret": SCRAPER_WEBHOOK_SECRET,
+      },
+      body: JSON.stringify({ run_id: runId, inputs }),
+      signal: timeout,
+    });
+  } catch (e) {
+    const reason = e instanceof Error && e.name === "TimeoutError"
+      ? "timed out after 10s"
+      : String(e instanceof Error ? e.message : e);
+    return json({ error: `Could not reach the scraper service: ${reason}` }, 502);
+  }
 
   if (!scraperRes.ok) {
     const text = await scraperRes.text().catch(() => "");
