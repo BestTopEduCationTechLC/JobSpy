@@ -137,8 +137,8 @@ class Country(Enum):
     VENEZUELA = ("venezuela", "ve")
     VIETNAM = ("vietnam", "vn", "com")
 
-    # internal for ziprecruiter
     US_CANADA = ("usa/ca", "www")
+    """Deprecated since 1.2.0: unused; will be removed in 2.0."""
 
     # internal for linkedin
     WORLDWIDE = ("worldwide", "www")
@@ -267,7 +267,6 @@ class JobPost(BaseModel):
     company_revenue: str | None = None
     company_description: str | None = None
     company_logo: str | None = None
-    banner_photo_url: str | None = None
 
     # LinkedIn only atm
     job_function: str | None = None
@@ -313,11 +312,10 @@ class ScraperInput(BaseModel):
     easy_apply: bool | None = None
     offset: int = 0
     fetch_description: bool = False
-    linkedin_fetch_description: bool = False  # deprecated alias of fetch_description
+    linkedin_fetch_description: bool = False
+    """Deprecated since 1.2.0: use fetch_description; will be removed in 2.0."""
     linkedin_company_ids: list[int] | None = None
     description_format: DescriptionFormat | None = DescriptionFormat.MARKDOWN
-
-    request_timeout: int = 60
 
     results_wanted: int = 15
     hours_old: int | None = None
